@@ -4,14 +4,21 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 import datetime
 import json
-from pathlib import Path
+import tkinter.simpledialog
+import re
+import sys
+icon_path = os.path.join(os.path.dirname(sys.executable), 'logo.ico')
+app.iconbitmap(icon_path)
 
 class ModernFolderRenamer:
     def __init__(self, root):
         self.root = root
-        self.root.title("Modern Folder Renamer - Kozen")
-        self.root.geometry("800x700")
-        self.root.configure(bg='#2c3e50')
+        self.root.title("Folder Manager - Kozen")
+        self.root.geometry("900x800")
+        self.root.configure(bg='#f8f9fa')
+        
+        # Центрирование окна
+        self.center_window()
         
         # Загрузка конфигурации атак
         self.config_file = "attack_config.json"
@@ -21,31 +28,74 @@ class ModernFolderRenamer:
         self.setup_styles()
         self.setup_ui()
         
+    def center_window(self):
+        """Центрирование окна на экране"""
+        self.root.update_idletasks()
+        width = self.root.winfo_width()
+        height = self.root.winfo_height()
+        x = (self.root.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.root.winfo_screenheight() // 2) - (height // 2)
+        self.root.geometry(f'{width}x{height}+{x}+{y}')
+        
     def setup_styles(self):
         self.style = ttk.Style()
         self.style.theme_use('clam')
         
-        # Настройка цветовой схемы
+        # Современная цветовая схема
         self.colors = {
-            'primary': '#3498db',
-            'secondary': '#2c3e50',
-            'success': '#2ecc71',
-            'warning': '#f39c12',
-            'danger': '#e74c3c',
-            'dark': '#34495e',
-            'light': '#ecf0f1',
-            'text': '#2c3e50'
+            'primary': '#4f46e5',
+            'primary_light': '#6366f1',
+            'secondary': '#64748b',
+            'success': '#10b981',
+            'warning': '#f59e0b',
+            'error': '#ef4444',
+            'background': '#f8f9fa',
+            'surface': '#ffffff',
+            'text_primary': '#1e293b',
+            'text_secondary': '#64748b',
+            'border': '#e2e8f0'
         }
         
-        # Конфигурация стилей
-        self.style.configure('TFrame', background=self.colors['secondary'])
-        self.style.configure('TLabel', background=self.colors['secondary'], foreground=self.colors['light'])
-        self.style.configure('TButton', font=('Arial', 10))
-        self.style.configure('Primary.TButton', background=self.colors['primary'], foreground='white')
-        self.style.configure('Success.TButton', background=self.colors['success'], foreground='white')
-        self.style.configure('Warning.TButton', background=self.colors['warning'], foreground='white')
-        self.style.configure('TRadiobutton', background=self.colors['secondary'], foreground=self.colors['light'])
-        self.style.configure('TCheckbutton', background=self.colors['secondary'], foreground=self.colors['light'])
+        # Конфигурация стилей с скруглёнными краями
+        self.style.configure('TFrame', background=self.colors['background'])
+        self.style.configure('TLabel', background=self.colors['background'], foreground=self.colors['text_primary'])
+        self.style.configure('TButton', font=('Segoe UI', 10), borderwidth=0, focuscolor='none')
+        self.style.configure('Rounded.TButton', 
+                           background=self.colors['primary'],
+                           foreground='white',
+                           borderwidth=0,
+                           focuscolor='none',
+                           relief='flat',
+                           padding=(20, 10))
+        self.style.map('Rounded.TButton',
+                      background=[('active', self.colors['primary_light']),
+                                ('pressed', self.colors['primary'])])
+        
+        self.style.configure('Secondary.TButton',
+                           background=self.colors['surface'],
+                           foreground=self.colors['text_primary'],
+                           borderwidth=1,
+                           relief='solid')
+        self.style.map('Secondary.TButton',
+                      background=[('active', self.colors['border'])])
+
+        self.style.configure('Success.TButton',
+                           background=self.colors['success'],
+                           foreground='white')
+        self.style.map('Success.TButton',
+                      background=[('active', '#34d399')])
+
+        self.style.configure('Warning.TButton',
+                           background=self.colors['warning'],
+                           foreground='white')
+        self.style.map('Warning.TButton',
+                      background=[('active', '#fbbf24')])
+
+        # Стили для фреймов с скруглёнными краями
+        self.style.configure('Rounded.TFrame', 
+                           background=self.colors['surface'],
+                           relief='solid',
+                           borderwidth=1)
         
     def load_attack_config(self):
         """Загрузка конфигурации атак из JSON файла"""
@@ -64,10 +114,16 @@ class ModernFolderRenamer:
             if os.path.exists(self.config_file):
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     self.attack_ranges = json.load(f)
+                    # Конвертируем строки обратно в кортежи
+                    for attack, devices in self.attack_ranges.items():
+                        for device, range_tuple in devices.items():
+                            if isinstance(range_tuple, list):
+                                self.attack_ranges[attack][device] = tuple(range_tuple)
             else:
                 self.attack_ranges = default_config
                 self.save_attack_config()
-        except:
+        except Exception as e:
+            print(f"Ошибка загрузки конфигурации: {e}")
             self.attack_ranges = default_config
             self.save_attack_config()
     
@@ -79,15 +135,26 @@ class ModernFolderRenamer:
         except Exception as e:
             self.log(f"Ошибка сохранения конфигурации: {str(e)}")
     
+    def create_rounded_frame(self, parent, **kwargs):
+        """Создание фрейма с скруглёнными краями"""
+        frame = tk.Frame(parent, 
+                        bg=self.colors['surface'],
+                        relief='solid',
+                        bd=1,
+                        **kwargs)
+        return frame
+    
     def setup_ui(self):
         # Заголовок
-        header_frame = ttk.Frame(self.root)
-        header_frame.pack(fill="x", padx=20, pady=10)
+        header_frame = self.create_rounded_frame(self.root)
+        header_frame.pack(fill="x", padx=20, pady=15)
         
-        title_label = tk.Label(header_frame, text="Modern Folder Renamer - Kozen", 
-                              font=("Arial", 18, "bold"), 
-                              bg=self.colors['secondary'], 
-                              fg=self.colors['light'])
+        title_label = tk.Label(header_frame, 
+                              text="📁 Folder Manager - Kozen", 
+                              font=("Segoe UI", 20, "bold"), 
+                              bg=self.colors['surface'], 
+                              fg=self.colors['text_primary'],
+                              pady=15)
         title_label.pack()
         
         # Основной контейнер с вкладками
@@ -95,19 +162,14 @@ class ModernFolderRenamer:
         notebook.pack(fill="both", expand=True, padx=20, pady=10)
         
         # Вкладка основного функционала
-        main_tab = ttk.Frame(notebook)
-        notebook.add(main_tab, text="Основной функционал")
-        
-        # Вкладка замены папок
-        replace_tab = ttk.Frame(notebook)
-        notebook.add(replace_tab, text="Замена папок")
+        main_tab = self.create_rounded_frame(notebook)
+        notebook.add(main_tab, text="🔄 Основные функции")
         
         # Вкладка настроек атак
-        settings_tab = ttk.Frame(notebook)
-        notebook.add(settings_tab, text="Настройки атак")
+        settings_tab = self.create_rounded_frame(notebook)
+        notebook.add(settings_tab, text="⚙️ Настройки атак")
         
         self.setup_main_tab(main_tab)
-        self.setup_replace_tab(replace_tab)
         self.setup_settings_tab(settings_tab)
         
         # Область для логов
@@ -115,129 +177,211 @@ class ModernFolderRenamer:
     
     def setup_main_tab(self, parent):
         # Фрейм для выбора папок
-        folder_frame = ttk.LabelFrame(parent, text="Выбор папок", padding=10)
-        folder_frame.pack(fill="x", padx=10, pady=5)
+        folder_frame = self.create_rounded_frame(parent)
+        folder_frame.pack(fill="x", padx=15, pady=10)
         
         # Исходная папка
-        ttk.Label(folder_frame, text="Исходная папка:").grid(row=0, column=0, sticky="w", pady=2)
-        self.source_entry = ttk.Entry(folder_frame, font=("Arial", 10))
-        self.source_entry.grid(row=0, column=1, sticky="ew", padx=5, pady=2)
-        ttk.Button(folder_frame, text="Обзор", command=self.browse_source).grid(row=0, column=2, padx=5)
+        tk.Label(folder_frame, text="📂 Исходная папка:", 
+                font=("Segoe UI", 10, "bold"),
+                bg=self.colors['surface']).grid(row=0, column=0, sticky="w", pady=(15, 5), padx=15)
+        
+        input_frame1 = tk.Frame(folder_frame, bg=self.colors['surface'])
+        input_frame1.grid(row=1, column=0, sticky="ew", padx=15, pady=(0, 10))
+        input_frame1.columnconfigure(0, weight=1)
+        
+        self.source_entry = ttk.Entry(input_frame1, font=("Segoe UI", 10))
+        self.source_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        
+        ttk.Button(input_frame1, text="Обзор", 
+                  command=self.browse_source, style="Secondary.TButton").grid(row=0, column=1)
         
         # Папка назначения
-        ttk.Label(folder_frame, text="Папка назначения:").grid(row=1, column=0, sticky="w", pady=2)
-        self.dest_entry = ttk.Entry(folder_frame, font=("Arial", 10))
-        self.dest_entry.grid(row=1, column=1, sticky="ew", padx=5, pady=2)
-        ttk.Button(folder_frame, text="Обзор", command=self.browse_dest).grid(row=1, column=2, padx=5)
+        tk.Label(folder_frame, text="📁 Папка назначения:", 
+                font=("Segoe UI", 10, "bold"),
+                bg=self.colors['surface']).grid(row=2, column=0, sticky="w", pady=(10, 5), padx=15)
         
-        folder_frame.columnconfigure(1, weight=1)
+        input_frame2 = tk.Frame(folder_frame, bg=self.colors['surface'])
+        input_frame2.grid(row=3, column=0, sticky="ew", padx=15, pady=(0, 15))
+        input_frame2.columnconfigure(0, weight=1)
+        
+        self.dest_entry = ttk.Entry(input_frame2, font=("Segoe UI", 10))
+        self.dest_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        
+        ttk.Button(input_frame2, text="Обзор", 
+                  command=self.browse_dest, style="Secondary.TButton").grid(row=0, column=1)
+        
+        folder_frame.columnconfigure(0, weight=1)
         
         # Фрейм для настроек
-        settings_frame = ttk.LabelFrame(parent, text="Настройки переименования", padding=10)
-        settings_frame.pack(fill="x", padx=10, pady=5)
+        settings_frame = self.create_rounded_frame(parent)
+        settings_frame.pack(fill="x", padx=15, pady=10)
         
         # Устройство
-        ttk.Label(settings_frame, text="Устройство:").grid(row=0, column=0, sticky="w", pady=5)
+        tk.Label(settings_frame, text="📱 Устройство:", 
+                font=("Segoe UI", 10, "bold"),
+                bg=self.colors['surface']).grid(row=0, column=0, sticky="w", pady=(15, 10), padx=15)
+        
         self.device_var = tk.StringVar(value="kozen 10")
-        device_frame = ttk.Frame(settings_frame)
-        device_frame.grid(row=0, column=1, sticky="w", pady=5)
+        device_frame = tk.Frame(settings_frame, bg=self.colors['surface'])
+        device_frame.grid(row=0, column=1, sticky="w", pady=(15, 10), padx=15)
+        
         ttk.Radiobutton(device_frame, text="Kozen 10", variable=self.device_var, 
-                       value="kozen 10", command=self.update_range_info).pack(side="left")
+                       value="kozen 10", command=self.update_range_info).pack(side="left", padx=(0, 20))
         ttk.Radiobutton(device_frame, text="Kozen 12", variable=self.device_var, 
-                       value="kozen 12", command=self.update_range_info).pack(side="left", padx=(20, 0))
+                       value="kozen 12", command=self.update_range_info).pack(side="left")
         
         # Атака
-        ttk.Label(settings_frame, text="Атака:").grid(row=1, column=0, sticky="w", pady=5)
+        tk.Label(settings_frame, text="🎯 Тип атаки:", 
+                font=("Segoe UI", 10, "bold"),
+                bg=self.colors['surface']).grid(row=1, column=0, sticky="w", pady=10, padx=15)
+        
         self.attack_var = tk.StringVar(value="2")
         self.attack_combo = ttk.Combobox(settings_frame, textvariable=self.attack_var, 
-                                       values=list(self.attack_ranges.keys()), state="readonly")
-        self.attack_combo.grid(row=1, column=1, sticky="w", pady=5)
+                                       values=list(self.attack_ranges.keys()), 
+                                       state="readonly", font=("Segoe UI", 10))
+        self.attack_combo.grid(row=1, column=1, sticky="w", pady=10, padx=15)
         self.attack_combo.bind("<<ComboboxSelected>>", self.update_range_info)
         
         # Чекбокс проверки содержимого
         self.check_content_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(settings_frame, text="Проверять содержимое папок", 
-                       variable=self.check_content_var).grid(row=2, column=0, columnspan=2, sticky="w", pady=5)
+        check_frame = tk.Frame(settings_frame, bg=self.colors['surface'])
+        check_frame.grid(row=2, column=0, columnspan=2, sticky="w", pady=10, padx=15)
+        
+        ttk.Checkbutton(check_frame, text="🔍 Проверять содержимое папок (3 папки + BestShot файл)", 
+                       variable=self.check_content_var).pack(side="left")
         
         # Информация о диапазоне
-        self.range_info = tk.Label(settings_frame, text="", font=("Arial", 10, "bold"), 
-                                  bg=self.colors['dark'], fg=self.colors['light'])
-        self.range_info.grid(row=3, column=0, columnspan=2, sticky="ew", pady=5)
+        self.range_info = tk.Label(settings_frame, text="", font=("Segoe UI", 10), 
+                                  bg=self.colors['surface'], fg=self.colors['primary'],
+                                  pady=10)
+        self.range_info.grid(row=3, column=0, columnspan=2, sticky="w", padx=15)
         
         settings_frame.columnconfigure(1, weight=1)
         
-        # Кнопка выполнения
-        button_frame = ttk.Frame(parent)
-        button_frame.pack(fill="x", padx=10, pady=10)
+        # Фрейм для замены папок
+        replace_frame = self.create_rounded_frame(parent)
+        replace_frame.pack(fill="x", padx=15, pady=10)
         
-        ttk.Button(button_frame, text="Выполнить переименование", 
-                  command=self.execute_renaming, style="Success.TButton").pack(pady=10)
+        tk.Label(replace_frame, text="🔧 Замена отдельных папок", 
+                font=("Segoe UI", 10, "bold"),
+                bg=self.colors['surface']).pack(anchor="w", pady=(15, 10), padx=15)
+        
+        tk.Label(replace_frame, text="Номера папок для замены:", 
+                font=("Segoe UI", 10),
+                bg=self.colors['surface']).pack(anchor="w", padx=15)
+        
+        input_frame = tk.Frame(replace_frame, bg=self.colors['surface'])
+        input_frame.pack(fill="x", padx=15, pady=10)
+        input_frame.columnconfigure(0, weight=1)
+        
+        self.replace_entry = ttk.Entry(input_frame, font=("Segoe UI", 10))
+        self.replace_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        
+        tk.Label(replace_frame, text="Пример: 101,102,105-110,115", 
+                font=("Segoe UI", 9),
+                bg=self.colors['surface'],
+                fg=self.colors['text_secondary']).pack(anchor="w", padx=15, pady=(0, 15))
+        
+        # Кнопки выполнения
+        button_frame = tk.Frame(parent, bg=self.colors['background'])
+        button_frame.pack(fill="x", padx=15, pady=15)
+        
+        ttk.Button(button_frame, text="🚀 Выполнить переименование", 
+                  command=self.execute_renaming, 
+                  style="Rounded.TButton").pack(pady=5)
+        
+        ttk.Button(button_frame, text="🔄 Выполнить замену", 
+                  command=self.execute_replacement, 
+                  style="Warning.TButton").pack(pady=5)
         
         self.update_range_info()
     
-    def setup_replace_tab(self, parent):
-        # Фрейм для замены папок
-        replace_frame = ttk.LabelFrame(parent, text="Замена отдельных папок", padding=10)
-        replace_frame.pack(fill="x", padx=10, pady=5)
-        
-        ttk.Label(replace_frame, text="Номера папок для замены:").grid(row=0, column=0, sticky="w", pady=5)
-        self.replace_entry = ttk.Entry(replace_frame, font=("Arial", 10))
-        self.replace_entry.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
-        
-        ttk.Label(replace_frame, text="Пример: 101,102,105-110,115").grid(row=1, column=1, sticky="w", pady=2)
-        
-        replace_frame.columnconfigure(1, weight=1)
-        
-        # Кнопка замены
-        ttk.Button(parent, text="Выполнить замену", 
-                  command=self.execute_replacement, style="Warning.TButton").pack(pady=10)
-    
     def setup_settings_tab(self, parent):
         # Фрейм для редактирования атак
-        edit_frame = ttk.LabelFrame(parent, text="Редактирование атак", padding=10)
-        edit_frame.pack(fill="x", padx=10, pady=5)
+        edit_frame = self.create_rounded_frame(parent)
+        edit_frame.pack(fill="x", padx=15, pady=15)
+        
+        tk.Label(edit_frame, text="⚙️ Управление настройками атак", 
+                font=("Segoe UI", 12, "bold"),
+                bg=self.colors['surface']).pack(anchor="w", pady=(15, 20), padx=15)
         
         # Выбор атаки для редактирования
-        ttk.Label(edit_frame, text="Атака:").grid(row=0, column=0, sticky="w", pady=5)
+        input_frame1 = tk.Frame(edit_frame, bg=self.colors['surface'])
+        input_frame1.pack(fill="x", padx=15, pady=10)
+        
+        tk.Label(input_frame1, text="Атака:", 
+                font=("Segoe UI", 10),
+                bg=self.colors['surface']).grid(row=0, column=0, sticky="w")
+        
         self.edit_attack_var = tk.StringVar()
-        self.edit_attack_combo = ttk.Combobox(edit_frame, textvariable=self.edit_attack_var, 
-                                            values=list(self.attack_ranges.keys()), state="readonly")
-        self.edit_attack_combo.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
+        self.edit_attack_combo = ttk.Combobox(input_frame1, textvariable=self.edit_attack_var, 
+                                            values=list(self.attack_ranges.keys()), 
+                                            state="readonly", font=("Segoe UI", 10))
+        self.edit_attack_combo.grid(row=0, column=1, sticky="ew", padx=10)
         self.edit_attack_combo.bind("<<ComboboxSelected>>", self.load_attack_data)
         
-        # Поля для диапазонов
-        ttk.Label(edit_frame, text="Kozen 10 (начало-конец):").grid(row=1, column=0, sticky="w", pady=5)
-        self.kozen10_entry = ttk.Entry(edit_frame, font=("Arial", 10))
-        self.kozen10_entry.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
+        input_frame1.columnconfigure(1, weight=1)
         
-        ttk.Label(edit_frame, text="Kozen 12 (начало-конец):").grid(row=2, column=0, sticky="w", pady=5)
-        self.kozen12_entry = ttk.Entry(edit_frame, font=("Arial", 10))
-        self.kozen12_entry.grid(row=2, column=1, sticky="ew", padx=5, pady=5)
+        # Поля для диапазонов
+        input_frame2 = tk.Frame(edit_frame, bg=self.colors['surface'])
+        input_frame2.pack(fill="x", padx=15, pady=10)
+        
+        tk.Label(input_frame2, text="Kozen 10 (начало-конец):", 
+                font=("Segoe UI", 10),
+                bg=self.colors['surface']).grid(row=0, column=0, sticky="w", pady=5)
+        
+        self.kozen10_entry = ttk.Entry(input_frame2, font=("Segoe UI", 10))
+        self.kozen10_entry.grid(row=0, column=1, sticky="ew", padx=10, pady=5)
+        
+        tk.Label(input_frame2, text="Kozen 12 (начало-конец):", 
+                font=("Segoe UI", 10),
+                bg=self.colors['surface']).grid(row=1, column=0, sticky="w", pady=5)
+        
+        self.kozen12_entry = ttk.Entry(input_frame2, font=("Segoe UI", 10))
+        self.kozen12_entry.grid(row=1, column=1, sticky="ew", padx=10, pady=5)
+        
+        input_frame2.columnconfigure(1, weight=1)
         
         # Кнопки управления
-        button_frame = ttk.Frame(edit_frame)
-        button_frame.grid(row=3, column=0, columnspan=2, pady=10)
+        button_frame = tk.Frame(edit_frame, bg=self.colors['surface'])
+        button_frame.pack(fill="x", padx=15, pady=20)
         
-        ttk.Button(button_frame, text="Сохранить", 
+        ttk.Button(button_frame, text="💾 Сохранить", 
                   command=self.save_attack_data, style="Success.TButton").pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Новая атака", 
-                  command=self.new_attack, style="Primary.TButton").pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Удалить атаку", 
-                  command=self.delete_attack, style="Danger.TButton").pack(side="left", padx=5)
-        
-        edit_frame.columnconfigure(1, weight=1)
+        ttk.Button(button_frame, text="➕ Новая атака", 
+                  command=self.new_attack, style="Rounded.TButton").pack(side="left", padx=5)
+        ttk.Button(button_frame, text="✏️ Переименовать", 
+                  command=self.rename_attack, style="Secondary.TButton").pack(side="left", padx=5)
+        ttk.Button(button_frame, text="🗑️ Удалить атаку", 
+                  command=self.delete_attack, style="Secondary.TButton").pack(side="left", padx=5)
     
     def setup_log_area(self):
-        log_frame = ttk.LabelFrame(self.root, text="Лог выполнения", padding=10)
+        log_frame = self.create_rounded_frame(self.root)
         log_frame.pack(fill="both", expand=True, padx=20, pady=10)
         
+        tk.Label(log_frame, text="📋 Лог выполнения", 
+                font=("Segoe UI", 12, "bold"),
+                bg=self.colors['surface']).pack(anchor="w", pady=(15, 10), padx=15)
+        
         self.log_text = scrolledtext.ScrolledText(log_frame, height=12, font=("Consolas", 9),
-                                                 bg='#1a1a1a', fg='#00ff00', insertbackground='white')
-        self.log_text.pack(fill="both", expand=True)
+                                                 bg='#1e293b', fg='#e2e8f0', 
+                                                 insertbackground='white',
+                                                 relief='flat',
+                                                 padx=10, pady=10)
+        self.log_text.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        
+        # Настройка тегов для цветного текста
+        self.log_text.tag_config("SUCCESS", foreground="#10b981")
+        self.log_text.tag_config("WARNING", foreground="#f59e0b")
+        self.log_text.tag_config("ERROR", foreground="#ef4444")
+        self.log_text.tag_config("INFO", foreground="#e2e8f0")
         
         # Кнопка очистки логов
-        ttk.Button(log_frame, text="Очистить логи", 
-                  command=self.clear_logs).pack(anchor="e", pady=5)
+        btn_frame = tk.Frame(log_frame, bg=self.colors['surface'])
+        btn_frame.pack(fill="x", padx=15, pady=(0, 15))
+        
+        ttk.Button(btn_frame, text="🧹 Очистить логи", 
+                  command=self.clear_logs, style="Secondary.TButton").pack(side="right")
     
     def browse_source(self):
         folder = filedialog.askdirectory()
@@ -258,31 +402,35 @@ class ModernFolderRenamer:
         if attack in self.attack_ranges and device in self.attack_ranges[attack]:
             start, end = self.attack_ranges[attack][device]
             total = end - start + 1
-            self.range_info.config(text=f"Диапазон: {start}-{end} (всего: {total} номеров)")
+            self.range_info.config(text=f"📊 Диапазон: {start}-{end} (всего: {total} номеров)")
         else:
-            self.range_info.config(text="Выбранная комбинация недоступна")
+            self.range_info.config(text="❌ Выбранная комбинация недоступна")
     
     def log(self, message, level="INFO"):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         if level == "WARNING":
-            formatted_message = f"[{timestamp}] ⚠️  {message}\n"
-            self.log_text.insert(tk.END, formatted_message, "warning")
+            icon = "⚠️"
+            tag = "WARNING"
         elif level == "ERROR":
-            formatted_message = f"[{timestamp}] ❌  {message}\n"
-            self.log_text.insert(tk.END, formatted_message, "error")
+            icon = "❌"
+            tag = "ERROR"
         elif level == "SUCCESS":
-            formatted_message = f"[{timestamp}] ✅  {message}\n"
-            self.log_text.insert(tk.END, formatted_message, "success")
+            icon = "✅"
+            tag = "SUCCESS"
         else:
-            formatted_message = f"[{timestamp}] ℹ️  {message}\n"
-            self.log_text.insert(tk.END, formatted_message)
+            icon = "ℹ️"
+            tag = "INFO"
         
+        formatted_message = f"[{timestamp}] {icon} {message}\n"
+        
+        self.log_text.insert(tk.END, formatted_message, tag)
         self.log_text.see(tk.END)
         self.root.update()
     
     def clear_logs(self):
         self.log_text.delete(1.0, tk.END)
+        self.log("Логи очищены", "INFO")
     
     def check_folder_content(self, folder_path):
         """Проверка содержимого папки"""
@@ -336,6 +484,11 @@ class ModernFolderRenamer:
         
         return sorted(set(numbers))
     
+    def natural_sort_key(self, s):
+        """Ключ для естественной сортировки как в проводнике Windows"""
+        return [int(text) if text.isdigit() else text.lower()
+                for text in re.split('([0-9]+)', s)]
+    
     def execute_renaming(self):
         source_folder = self.source_entry.get()
         dest_folder = self.dest_entry.get()
@@ -368,7 +521,7 @@ class ModernFolderRenamer:
             device_folder = os.path.join(attack_folder, device)
             os.makedirs(device_folder, exist_ok=True)
             
-            self.log("=" * 60, "SUCCESS")
+            self.log("=" * 70, "SUCCESS")
             self.log(f"Начало обработки...", "SUCCESS")
             self.log(f"Источник: {source_folder}")
             self.log(f"Назначение: {device_folder}")
@@ -377,18 +530,19 @@ class ModernFolderRenamer:
             self.log(f"Диапазон номеров: {start_num} - {end_num}")
             self.log(f"Проверка содержимого: {'ВКЛ' if check_content else 'ВЫКЛ'}")
             
-            # Получаем список папок для обработки и сортируем по имени
+            # Получаем список папок для обработки
             folders = [f for f in os.listdir(source_folder) 
                       if os.path.isdir(os.path.join(source_folder, f))]
             
-            # Сортируем папки по имени (по возрастанию)
-            folders.sort()
+            # Сортируем папки по имени с естественной сортировкой
+            folders.sort(key=self.natural_sort_key)
             
             if not folders:
                 messagebox.showwarning("Предупреждение", "В исходной папке не найдено папок для обработки")
                 return
             
             self.log(f"Найдено папок для обработки: {len(folders)}")
+            self.log(f"Первые 5 папок после сортировки: {folders[:5]}")
             
             # Проверяем достаточно ли номеров в диапазоне
             available_numbers = end_num - start_num + 1
@@ -401,7 +555,6 @@ class ModernFolderRenamer:
             # Обрабатываем папки
             current_number = start_num
             processed_count = 0
-            skipped_count = 0
             content_warnings = 0
             
             for folder in folders:
@@ -417,7 +570,7 @@ class ModernFolderRenamer:
                 # Удаляем существующую папку (перезапись)
                 if os.path.exists(new_path):
                     shutil.rmtree(new_path)
-                    self.log(f"Удалена существующая папка: {new_name}")
+                    self.log(f"Удалена существующая папка: {new_name}", "WARNING")
                 
                 # Копируем и переименовываем папку
                 shutil.copytree(old_path, new_path)
@@ -426,21 +579,19 @@ class ModernFolderRenamer:
                 
                 current_number += 1
             
-            self.log("=" * 60, "SUCCESS")
-            self.log(f"Обработка завершена!", "SUCCESS")
-            self.log(f"Успешно обработано: {processed_count}")
-            self.log(f"Предупреждений по содержимому: {content_warnings}")
-            
+            self.log("=" * 70, "SUCCESS")
+            self.log(f"Обработка завершена успешно!", "SUCCESS")
+            self.log(f"Успешно обработано: {processed_count} папок")
             if content_warnings > 0:
-                self.log(f"ВНИМАНИЕ: Обнаружено {content_warnings} папок с проблемным содержимым!", "WARNING")
+                self.log(f"Обнаружено предупреждений по содержимому: {content_warnings}", "WARNING")
             
             messagebox.showinfo("Успех", 
-                               f"Обработка завершена!\n"
-                               f"Успешно обработано: {processed_count}\n"
-                               f"Предупреждений: {content_warnings}")
+                               f"Обработка завершена!\n\n"
+                               f"✅ Успешно обработано: {processed_count} папок\n"
+                               f"⚠️ Предупреждений: {content_warnings}")
             
         except Exception as e:
-            self.log(f"ОШИБКА: {str(e)}", "ERROR")
+            self.log(f"Критическая ошибка: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка: {str(e)}")
     
     def execute_replacement(self):
@@ -485,7 +636,9 @@ class ModernFolderRenamer:
             # Получаем список папок для замены
             source_folders = [f for f in os.listdir(source_folder) 
                             if os.path.isdir(os.path.join(source_folder, f))]
-            source_folders.sort()
+            
+            # Сортируем папки по имени с естественной сортировкой
+            source_folders.sort(key=self.natural_sort_key)
             
             if len(source_folders) != len(replace_numbers):
                 messagebox.showerror("Ошибка", 
@@ -493,11 +646,13 @@ class ModernFolderRenamer:
                     f"не соответствует количеству номеров для замены ({len(replace_numbers)})")
                 return
             
-            self.log("=" * 60, "SUCCESS")
+            self.log("=" * 70, "SUCCESS")
             self.log(f"Начало замены папок...", "SUCCESS")
             self.log(f"Заменяемые номера: {replace_numbers}")
+            self.log(f"Найденные папки: {source_folders}")
             
             content_warnings = 0
+            replaced_count = 0
             
             for i, folder in enumerate(source_folders):
                 if i >= len(replace_numbers):
@@ -517,16 +672,17 @@ class ModernFolderRenamer:
                     shutil.rmtree(new_path)
                 
                 shutil.copytree(old_path, new_path)
-                self.log(f"Заменена папка: {new_name} (из {folder})", "SUCCESS")
+                self.log(f"Заменена папка {replace_numbers[i]}: {folder} -> {new_name}", "SUCCESS")
+                replaced_count += 1
             
-            self.log("=" * 60, "SUCCESS")
-            self.log(f"Замена завершена!", "SUCCESS")
-            self.log(f"Заменено папок: {len(replace_numbers)}")
+            self.log("=" * 70, "SUCCESS")
+            self.log(f"Замена завершена успешно!", "SUCCESS")
+            self.log(f"Заменено папок: {replaced_count}")
             
-            messagebox.showinfo("Успех", f"Замена завершена!\nЗаменено папок: {len(replace_numbers)}")
+            messagebox.showinfo("Успех", f"Замена завершена!\n\n✅ Заменено папок: {replaced_count}")
             
         except Exception as e:
-            self.log(f"ОШИБКА при замене: {str(e)}", "ERROR")
+            self.log(f"Ошибка при замене: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка: {str(e)}")
     
     def load_attack_data(self, event=None):
@@ -605,6 +761,42 @@ class ModernFolderRenamer:
             
             self.log(f"Создана новая атака: {attack}", "SUCCESS")
     
+    def rename_attack(self):
+        """Переименование существующей атаки"""
+        old_attack = self.edit_attack_var.get()
+        if not old_attack:
+            messagebox.showerror("Ошибка", "Выберите атаку для переименования")
+            return
+        
+        new_attack = tk.simpledialog.askstring("Переименование атаки", 
+                                              f"Введите новое название для атаки {old_attack}:",
+                                              initialvalue=old_attack)
+        if new_attack:
+            if new_attack in self.attack_ranges:
+                messagebox.showerror("Ошибка", "Атака с таким названием уже существует")
+                return
+            
+            # Сохраняем данные старой атаки
+            attack_data = self.attack_ranges[old_attack]
+            
+            # Удаляем старую атаку и создаем новую
+            del self.attack_ranges[old_attack]
+            self.attack_ranges[new_attack] = attack_data
+            self.save_attack_config()
+            
+            # Обновляем комбобоксы
+            attacks = list(self.attack_ranges.keys())
+            self.attack_combo['values'] = attacks
+            self.edit_attack_combo['values'] = attacks
+            
+            # Устанавливаем новое значение
+            self.attack_var.set(new_attack)
+            self.edit_attack_var.set(new_attack)
+            self.load_attack_data()
+            
+            self.log(f"Атака переименована: {old_attack} -> {new_attack}", "SUCCESS")
+            messagebox.showinfo("Успех", f"Атака успешно переименована: {old_attack} -> {new_attack}")
+    
     def delete_attack(self):
         """Удаление атаки"""
         attack = self.edit_attack_var.get()
@@ -621,23 +813,20 @@ class ModernFolderRenamer:
             self.attack_combo['values'] = attacks
             self.edit_attack_combo['values'] = attacks
             
-            self.edit_attack_var.set("")
-            self.kozen10_entry.delete(0, tk.END)
-            self.kozen12_entry.delete(0, tk.END)
+            if attacks:
+                self.edit_attack_var.set(attacks[0])
+                self.load_attack_data()
+            else:
+                self.edit_attack_var.set("")
+                self.kozen10_entry.delete(0, tk.END)
+                self.kozen12_entry.delete(0, tk.END)
             
             self.log(f"Атака {attack} удалена", "SUCCESS")
 
 def main():
     root = tk.Tk()
-    
-    # Настройка цветов для текста в логах
-    root.option_add('*Text.warning.foreground', 'orange')
-    root.option_add('*Text.error.foreground', 'red')
-    root.option_add('*Text.success.foreground', 'green')
-    
     app = ModernFolderRenamer(root)
     root.mainloop()
 
 if __name__ == "__main__":
-    import tkinter.simpledialog
     main()

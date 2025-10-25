@@ -1,0 +1,1 @@
+py -m PyInstaller --onefile --windowed --name "FolderManager" --icon=icon.ico folder_renamer.py
