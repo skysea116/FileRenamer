@@ -6,9 +6,6 @@ import datetime
 import json
 import tkinter.simpledialog
 import re
-import sys
-icon_path = os.path.join(os.path.dirname(sys.executable), 'logo.ico')
-app.iconbitmap(icon_path)
 
 class ModernFolderRenamer:
     def __init__(self, root):
@@ -277,7 +274,7 @@ class ModernFolderRenamer:
         self.replace_entry = ttk.Entry(input_frame, font=("Segoe UI", 10))
         self.replace_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
         
-        tk.Label(replace_frame, text="Пример: 101,102,105-110,115", 
+        tk.Label(replace_frame, text="Пример: 522, 530-532,528 (сохраняется порядок ввода!)", 
                 font=("Segoe UI", 9),
                 bg=self.colors['surface'],
                 fg=self.colors['text_secondary']).pack(anchor="w", padx=15, pady=(0, 15))
@@ -464,25 +461,41 @@ class ModernFolderRenamer:
             return False
     
     def parse_number_range(self, range_str):
-        """Парсинг диапазона номеров (например: '101,102,105-110,115')"""
+        """Парсинг диапазона номеров с сохранением порядка ввода"""
         numbers = []
-        parts = range_str.split(',')
+        parts = [part.strip() for part in range_str.split(',')]
         
         for part in parts:
-            part = part.strip()
+            if not part:
+                continue
+                
             if '-' in part:
-                start, end = part.split('-')
+                # Обрабатываем диапазон
+                range_parts = part.split('-')
+                if len(range_parts) != 2:
+                    return None
+                
                 try:
-                    numbers.extend(range(int(start), int(end) + 1))
+                    start = int(range_parts[0].strip())
+                    end = int(range_parts[1].strip())
+                    
+                    # Определяем направление диапазона
+                    if start <= end:
+                        # Возрастающий диапазон
+                        numbers.extend(range(start, end + 1))
+                    else:
+                        # Убывающий диапазон  
+                        numbers.extend(range(start, end - 1, -1))
                 except ValueError:
                     return None
             else:
+                # Одиночный номер
                 try:
                     numbers.append(int(part))
                 except ValueError:
                     return None
         
-        return sorted(set(numbers))
+        return numbers  # Возвращаем в порядке ввода, БЕЗ сортировки!
     
     def natural_sort_key(self, s):
         """Ключ для естественной сортировки как в проводнике Windows"""
@@ -517,7 +530,7 @@ class ModernFolderRenamer:
             os.makedirs(dest_folder, exist_ok=True)
             
             # Создаем подпапку для атаки и устройства
-            attack_folder = os.path.join(dest_folder, f"attack_{attack}")
+            attack_folder = os.path.join(dest_folder, f"{attack}")
             device_folder = os.path.join(attack_folder, device)
             os.makedirs(device_folder, exist_ok=True)
             
@@ -542,7 +555,7 @@ class ModernFolderRenamer:
                 return
             
             self.log(f"Найдено папок для обработки: {len(folders)}")
-            self.log(f"Первые 5 папок после сортировки: {folders[:5]}")
+            self.log(f"Отсортированные папки: {folders}")
             
             # Проверяем достаточно ли номеров в диапазоне
             available_numbers = end_num - start_num + 1
@@ -606,10 +619,10 @@ class ModernFolderRenamer:
             messagebox.showerror("Ошибка", "Введите номера папок для замены")
             return
         
-        # Парсим номера
+        # Парсим номера (ВАЖНО: без сортировки, сохраняем порядок ввода!)
         replace_numbers = self.parse_number_range(replace_numbers_str)
         if replace_numbers is None:
-            messagebox.showerror("Ошибка", "Неверный формат номеров. Используйте: 101,102,105-110,115")
+            messagebox.showerror("Ошибка", "Неверный формат номеров. Используйте: 522,530-532,528")
             return
         
         # Проверяем доступность диапазона
@@ -626,7 +639,7 @@ class ModernFolderRenamer:
                 return
         
         try:
-            attack_folder = os.path.join(dest_folder, f"attack_{attack}")
+            attack_folder = os.path.join(dest_folder, f"{attack}")
             device_folder = os.path.join(attack_folder, device)
             
             if not os.path.exists(device_folder):
@@ -648,18 +661,19 @@ class ModernFolderRenamer:
             
             self.log("=" * 70, "SUCCESS")
             self.log(f"Начало замены папок...", "SUCCESS")
-            self.log(f"Заменяемые номера: {replace_numbers}")
-            self.log(f"Найденные папки: {source_folders}")
+            self.log(f"Заменяемые номера (в порядке ввода): {replace_numbers}")
+            self.log(f"Отсортированные исходные папки: {source_folders}")
             
             content_warnings = 0
             replaced_count = 0
             
+            # ВАЖНО: сопоставляем строго по порядку
+            # Первая отсортированная папка -> первый номер из списка
+            # Вторая отсортированная папка -> второй номер из списка и т.д.
             for i, folder in enumerate(source_folders):
-                if i >= len(replace_numbers):
-                    break
-                    
                 old_path = os.path.join(source_folder, folder)
-                new_name = str(replace_numbers[i])
+                target_number = replace_numbers[i]  # Берем номер из списка в порядке ввода
+                new_name = str(target_number)
                 new_path = os.path.join(device_folder, new_name)
                 
                 # Проверка содержимого если включено
@@ -672,7 +686,7 @@ class ModernFolderRenamer:
                     shutil.rmtree(new_path)
                 
                 shutil.copytree(old_path, new_path)
-                self.log(f"Заменена папка {replace_numbers[i]}: {folder} -> {new_name}", "SUCCESS")
+                self.log(f"Замена {i+1}: {folder} -> {new_name}", "SUCCESS")
                 replaced_count += 1
             
             self.log("=" * 70, "SUCCESS")
