@@ -11,8 +11,9 @@ class ModernFolderRenamer:
     def __init__(self, root):
         self.root = root
         self.root.title("Folder Manager - Kozen")
-        self.root.geometry("1400x1200")
+        self.root.geometry("1400x900")
         self.root.configure(bg='#f8f9fa')
+        self.root.minsize(1200, 700)
         
         # Центрирование окна
         self.center_window()
@@ -53,7 +54,7 @@ class ModernFolderRenamer:
             'border': '#e2e8f0'
         }
         
-        # Конфигурация стилей с скруглёнными краями
+        # Конфигурация стилей
         self.style.configure('TFrame', background=self.colors['background'])
         self.style.configure('TLabel', background=self.colors['background'], foreground=self.colors['text_primary'])
         self.style.configure('TButton', font=('Segoe UI', 10), borderwidth=0, focuscolor='none')
@@ -88,7 +89,6 @@ class ModernFolderRenamer:
         self.style.map('Warning.TButton',
                       background=[('active', '#fbbf24')])
 
-        # Стили для фреймов с скруглёнными краями
         self.style.configure('Rounded.TFrame', 
                            background=self.colors['surface'],
                            relief='solid',
@@ -111,6 +111,7 @@ class ModernFolderRenamer:
             if os.path.exists(self.config_file):
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     self.attack_ranges = json.load(f)
+                    # Конвертируем списки обратно в кортежи
                     for attack, devices in self.attack_ranges.items():
                         for device, range_tuple in devices.items():
                             if isinstance(range_tuple, list):
@@ -172,13 +173,23 @@ class ModernFolderRenamer:
         self.setup_main_tab(main_tab)
         self.setup_check_tab(check_tab)
         self.setup_settings_tab(settings_tab)
-        
-        # Область для логов
-        self.setup_log_area()
     
     def setup_main_tab(self, parent):
+        # Создаем разделяемый фрейм для левой (настройки) и правой (логи) части
+        main_paned = ttk.PanedWindow(parent, orient=tk.HORIZONTAL)
+        main_paned.pack(fill="both", expand=True, padx=15, pady=15)
+        
+        # Левая часть - настройки
+        left_frame = self.create_rounded_frame(main_paned)
+        main_paned.add(left_frame, weight=1)
+        
+        # Правая часть - логи
+        right_frame = self.create_rounded_frame(main_paned)
+        main_paned.add(right_frame, weight=1)
+        
+        # Настройка левой части - элементы управления
         # Фрейм для выбора папок
-        folder_frame = self.create_rounded_frame(parent)
+        folder_frame = self.create_rounded_frame(left_frame)
         folder_frame.pack(fill="x", padx=15, pady=10)
         
         # Исходная папка
@@ -214,10 +225,10 @@ class ModernFolderRenamer:
         folder_frame.columnconfigure(0, weight=1)
         
         # Фрейм для настроек
-        settings_frame = self.create_rounded_frame(parent)
+        settings_frame = self.create_rounded_frame(left_frame)
         settings_frame.pack(fill="x", padx=15, pady=10)
         
-        # Устройство (теперь опциональное)
+        # Устройство
         tk.Label(settings_frame, text="📱 Устройство:", 
                 font=("Segoe UI", 10, "bold"),
                 bg=self.colors['surface']).grid(row=0, column=0, sticky="w", pady=(15, 10), padx=15)
@@ -262,7 +273,7 @@ class ModernFolderRenamer:
         settings_frame.columnconfigure(1, weight=1)
         
         # Фрейм для замены папок
-        replace_frame = self.create_rounded_frame(parent)
+        replace_frame = self.create_rounded_frame(left_frame)
         replace_frame.pack(fill="x", padx=15, pady=10)
         
         tk.Label(replace_frame, text="🔧 Замена отдельных папок", 
@@ -280,24 +291,65 @@ class ModernFolderRenamer:
         self.replace_entry = ttk.Entry(input_frame, font=("Segoe UI", 10))
         self.replace_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
         
-        tk.Label(replace_frame, text="Пример: 522, 530-532,528)", 
+        tk.Label(replace_frame, text="Пример: 522, 530-532,528", 
                 font=("Segoe UI", 9),
                 bg=self.colors['surface'],
                 fg=self.colors['text_secondary']).pack(anchor="w", padx=15, pady=(0, 15))
         
-        # Кнопки выполнения
-        button_frame = tk.Frame(parent, bg=self.colors['background'])
+        # Кнопки выполнения - ГОРИЗОНТАЛЬНО
+        button_frame = tk.Frame(left_frame, bg=self.colors['background'])
         button_frame.pack(fill="x", padx=15, pady=15)
         
-        ttk.Button(button_frame, text="🚀 Выполнить переименование", 
-                  command=self.execute_renaming, 
-                  style="Rounded.TButton").pack(pady=5)
+        # Создаем контейнер для кнопок с одинаковым размером
+        btn_container = tk.Frame(button_frame, bg=self.colors['background'])
+        btn_container.pack()
         
-        ttk.Button(button_frame, text="🔄 Выполнить замену", 
-                  command=self.execute_replacement, 
-                  style="Warning.TButton").pack(pady=5)
+        # Кнопки одинакового размера
+        self.rename_btn = ttk.Button(btn_container, text="🚀 Выполнить переименование", 
+                                   command=self.execute_renaming, 
+                                   style="Rounded.TButton",
+                                   width=25)
+        self.rename_btn.pack(side="left", padx=5)
+        
+        self.replace_btn = ttk.Button(btn_container, text="🔄 Выполнить замену", 
+                                    command=self.execute_replacement, 
+                                    style="Warning.TButton",
+                                    width=25)
+        self.replace_btn.pack(side="left", padx=5)
         
         self.update_range_info()
+        
+        # Настройка правой части - логи
+        tk.Label(right_frame, text="📋 Основные логи выполнения", 
+                font=("Segoe UI", 12, "bold"),
+                bg=self.colors['surface']).pack(anchor="w", pady=(15, 10), padx=15)
+        
+        # Фрейм для логов с прокруткой
+        log_container = tk.Frame(right_frame, bg=self.colors['surface'])
+        log_container.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        
+        self.log_text = scrolledtext.ScrolledText(log_container, height=25, font=("Consolas", 9),
+                                                 bg='#1e293b', fg='#e2e8f0', 
+                                                 insertbackground='white',
+                                                 relief='flat',
+                                                 padx=10, pady=10)
+        self.log_text.pack(fill="both", expand=True)
+        
+        # Настройка тегов для цветного текста
+        self.log_text.tag_config("SUCCESS", foreground="#10b981")
+        self.log_text.tag_config("WARNING", foreground="#f59e0b")
+        self.log_text.tag_config("ERROR", foreground="#ef4444")
+        self.log_text.tag_config("INFO", foreground="#e2e8f0")
+        self.log_text.tag_config("CRITICAL", foreground="#ff0000", background="#330000")
+        self.log_text.tag_config("HEADER", foreground="#93c5fd", font=("Consolas", 9, "bold"))
+        self.log_text.tag_config("DETAIL", foreground="#94a3b8")
+        
+        # Кнопка очистки логов
+        btn_frame = tk.Frame(right_frame, bg=self.colors['surface'])
+        btn_frame.pack(fill="x", padx=15, pady=(0, 15))
+        
+        ttk.Button(btn_frame, text="🧹 Очистить логи", 
+                  command=self.clear_logs, style="Secondary.TButton").pack(side="right")
     
     def setup_check_tab(self, parent):
         paned_window = ttk.PanedWindow(parent, orient=tk.HORIZONTAL)
@@ -400,12 +452,16 @@ class ModernFolderRenamer:
                 font=("Segoe UI", 12, "bold"),
                 bg=self.colors['surface']).pack(anchor="w", pady=(15, 10), padx=15)
         
-        self.check_log_text = scrolledtext.ScrolledText(right_frame, height=35, font=("Consolas", 9),
+        # Контейнер для логов проверки
+        check_log_container = tk.Frame(right_frame, bg=self.colors['surface'])
+        check_log_container.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        
+        self.check_log_text = scrolledtext.ScrolledText(check_log_container, height=25, font=("Consolas", 9),
                                                        bg='#1e293b', fg='#e2e8f0', 
                                                        insertbackground='white',
                                                        relief='flat',
                                                        padx=10, pady=10)
-        self.check_log_text.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        self.check_log_text.pack(fill="both", expand=True)
         
         # Настройка тегов для цветного текста
         self.check_log_text.tag_config("SUCCESS", foreground="#10b981")
@@ -426,7 +482,7 @@ class ModernFolderRenamer:
     
     def setup_settings_tab(self, parent):
         edit_frame = self.create_rounded_frame(parent)
-        edit_frame.pack(fill="x", padx=15, pady=15)
+        edit_frame.pack(fill="both", expand=True, padx=15, pady=15)
         
         tk.Label(edit_frame, text="⚙️ Управление настройками атак", 
                 font=("Segoe UI", 12, "bold"),
@@ -478,36 +534,6 @@ class ModernFolderRenamer:
                   command=self.rename_attack, style="Secondary.TButton").pack(side="left", padx=5)
         ttk.Button(button_frame, text="🗑️ Удалить атаку", 
                   command=self.delete_attack, style="Secondary.TButton").pack(side="left", padx=5)
-    
-    def setup_log_area(self):
-        log_frame = self.create_rounded_frame(self.root)
-        log_frame.pack(fill="both", expand=True, padx=20, pady=10)
-        
-        tk.Label(log_frame, text="📋 Основные логи выполнения", 
-                font=("Segoe UI", 12, "bold"),
-                bg=self.colors['surface']).pack(anchor="w", pady=(15, 10), padx=15)
-        
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=40, font=("Consolas", 9),
-                                                 bg='#1e293b', fg='#e2e8f0', 
-                                                 insertbackground='white',
-                                                 relief='flat',
-                                                 padx=10, pady=10)
-        self.log_text.pack(fill="both", expand=True, padx=15, pady=(0, 15))
-        
-        # Настройка тегов для цветного текста
-        self.log_text.tag_config("SUCCESS", foreground="#10b981")
-        self.log_text.tag_config("WARNING", foreground="#f59e0b")
-        self.log_text.tag_config("ERROR", foreground="#ef4444")
-        self.log_text.tag_config("INFO", foreground="#e2e8f0")
-        self.log_text.tag_config("CRITICAL", foreground="#ff0000", background="#330000")
-        self.log_text.tag_config("HEADER", foreground="#93c5fd", font=("Consolas", 9, "bold"))
-        self.log_text.tag_config("DETAIL", foreground="#94a3b8")
-        
-        btn_frame = tk.Frame(log_frame, bg=self.colors['surface'])
-        btn_frame.pack(fill="x", padx=15, pady=(0, 15))
-        
-        ttk.Button(btn_frame, text="🧹 Очистить логи", 
-                  command=self.clear_logs, style="Secondary.TButton").pack(side="right")
     
     def browse_source(self):
         folder = filedialog.askdirectory()
@@ -629,8 +655,11 @@ class ModernFolderRenamer:
         self.check_log_text.delete(1.0, tk.END)
         self.check_log("Логи проверки очищены", "INFO")
     
-    def check_folder_content(self, folder_path, log_errors=True, indent=0):
-        """Проверка содержимого папки - возвращает True если всё в порядке, False если есть ошибки"""
+    def check_folder_content(self, folder_path, log_errors=True, indent=0, check_names=False):
+        """
+        Проверка содержимого папки
+        check_names: если True, проверяет что имена папок числовые (для проверки атак)
+        """
         try:
             items = os.listdir(folder_path)
             folders = [item for item in items if os.path.isdir(os.path.join(folder_path, item))]
@@ -655,6 +684,13 @@ class ModernFolderRenamer:
                 folder_full_path = os.path.join(folder_path, folder)
                 if not os.listdir(folder_full_path):
                     errors.append(f"Папка '{folder}' пустая")
+            
+            # Проверка числовых имен (только при check_names=True)
+            # ВАЖНО: проверяем только папки атак, внутренние папки могут иметь любые имена
+            if check_names:
+                non_numeric = [f for f in folders if not f.isdigit()]
+                if non_numeric:
+                    errors.append(f"Нечисловые имена папок: {', '.join(non_numeric)}")
             
             if log_errors:
                 if errors:
@@ -692,28 +728,25 @@ class ModernFolderRenamer:
             for folder in folders:
                 folder_path = os.path.join(source_folder, folder)
                 creation_time = self.get_folder_creation_time(folder_path)
-                if creation_time > 0:  # Проверяем, что время получено корректно
+                if creation_time > 0:
                     creation_times.append((folder, creation_time))
             
             if not creation_times:
-                return "не удалось вычислитъ"
+                return "не удалось вычислить"
+            
+            # Сортируем по времени создания
+            creation_times.sort(key=lambda x: x[1])
             
             # Группируем папки по дням
             days_dict = {}
             for folder_name, timestamp in creation_times:
-                # Преобразуем timestamp в datetime
                 dt = datetime.datetime.fromtimestamp(timestamp)
-                # Получаем дату без времени (ключ для группировки)
                 date_key = dt.date()
                 
                 if date_key not in days_dict:
                     days_dict[date_key] = []
                 
-                days_dict[date_key].append((folder_name, timestamp))
-            
-            # Сортируем папки внутри каждого дня по времени создания
-            for date_key in days_dict:
-                days_dict[date_key].sort(key=lambda x: x[1])
+                days_dict[date_key].append((folder_name, timestamp, dt))
             
             # Вычисляем общее время съёмки
             total_seconds = 0
@@ -727,8 +760,8 @@ class ModernFolderRenamer:
                     total_seconds += day_duration
                     
                     # Логируем информацию о дне
-                    first_dt = datetime.datetime.fromtimestamp(first_folder_time)
-                    last_dt = datetime.datetime.fromtimestamp(last_folder_time)
+                    first_dt = day_folders[0][2]
+                    last_dt = day_folders[-1][2]
                     self.log(f"📅 День {date_key}: {first_dt.strftime('%H:%M:%S')} - {last_dt.strftime('%H:%M:%S')} "
                            f"({len(day_folders)} папок, время: {self.format_duration(day_duration)})", "DETAIL")
                 elif len(day_folders) == 1:
@@ -788,6 +821,31 @@ class ModernFolderRenamer:
         return [int(text) if text.isdigit() else text.lower()
                 for text in re.split('([0-9]+)', s)]
     
+    def get_attack_expected_count(self, attack_name, device):
+        """Получает ожидаемое количество папок для атаки и устройства"""
+        if attack_name not in self.attack_ranges:
+            return 0
+        
+        if device == "все":
+            min_num = None
+            max_num = None
+            for device_name in ["kozen 10", "kozen 12"]:
+                if device_name in self.attack_ranges[attack_name]:
+                    start, end = self.attack_ranges[attack_name][device_name]
+                    if min_num is None or start < min_num:
+                        min_num = start
+                    if max_num is None or end > max_num:
+                        max_num = end
+            
+            if min_num is not None and max_num is not None:
+                return max_num - min_num + 1
+            return 0
+        else:
+            if device in self.attack_ranges[attack_name]:
+                start, end = self.attack_ranges[attack_name][device]
+                return end - start + 1
+            return 0
+    
     def execute_renaming(self):
         source_folder = self.source_entry.get()
         dest_folder = self.dest_entry.get()
@@ -818,6 +876,17 @@ class ModernFolderRenamer:
             messagebox.showerror("Ошибка", f"Выбранная комбинация атаки {attack} и устройства {device} недоступна")
             return
         
+        # ПРОВЕРКА КОЛИЧЕСТВА ПАПОК
+        expected_count = self.get_attack_expected_count(attack, device)
+        if expected_count > 0 and len(folders) < expected_count:
+            response = messagebox.askyesno(
+                "Предупреждение", 
+                f"Количество папок в исходной папке ({len(folders)}) меньше, чем требуется для атаки ({expected_count}).\n\n"
+                f"Продолжить выполнение?"
+            )
+            if not response:
+                return
+        
         try:
             os.makedirs(dest_folder, exist_ok=True)
             attack_folder = os.path.join(dest_folder, attack)
@@ -826,18 +895,25 @@ class ModernFolderRenamer:
             self.log("=" * 70, "SUCCESS")
             self.log(f"🚀 Начало обработки...", "HEADER")
             self.log(f"📊 Найдено папок для обработки: {len(folders)}", "INFO")
+            if expected_count > 0:
+                self.log(f"📋 Ожидаемое количество для атаки: {expected_count}", "INFO")
             
+            # ПРЕДВАРИТЕЛЬНАЯ ПРОВЕРКА СОДЕРЖИМОГО
             if check_content:
                 self.log("🔍 Начинается предварительная проверка содержимого...", "INFO")
                 content_errors = False
+                error_details = []
                 
                 for folder in folders:
                     old_path = os.path.join(source_folder, folder)
-                    if not self.check_folder_content(old_path, log_errors=False):
+                    # check_names=False - не проверяем числовые имена при выгрузке, проверяем только структуру
+                    if not self.check_folder_content(old_path, log_errors=False, check_names=False):
                         content_errors = True
+                        error_details.append(folder)
                 
                 if content_errors:
                     self.log("🚫 ОБНАРУЖЕНЫ ОШИБКИ! Переименование отменено.", "ERROR")
+                    self.log(f"📂 Папки с ошибками: {', '.join(error_details)}", "ERROR")
                     messagebox.showerror("Ошибка", 
                                         "Обнаружены ошибки в содержимом папок! "
                                         "Переименование отменено. Проверьте логи для деталей.")
@@ -998,17 +1074,22 @@ class ModernFolderRenamer:
             self.log(f"🔄 Начало замены папок...", "HEADER")
             self.log(f"🔢 Заменяемые номера: {replace_numbers}", "INFO")
             
+            # ПРЕДВАРИТЕЛЬНАЯ ПРОВЕРКА СОДЕРЖИМОГО
             if check_content:
                 self.log("🔍 Начинается предварительная проверка содержимого...", "INFO")
                 content_errors = False
+                error_details = []
                 
                 for folder in source_folders:
                     old_path = os.path.join(source_folder, folder)
-                    if not self.check_folder_content(old_path, log_errors=False):
+                    # check_names=False - не проверяем числовые имена при замене, проверяем только структуру
+                    if not self.check_folder_content(old_path, log_errors=False, check_names=False):
                         content_errors = True
+                        error_details.append(folder)
                 
                 if content_errors:
                     self.log("🚫 ОБНАРУЖЕНЫ ОШИБКИ! Замена отменена.", "ERROR")
+                    self.log(f"📂 Папки с ошибками: {', '.join(error_details)}", "ERROR")
                     messagebox.showerror("Ошибка", 
                                         "Обнаружены ошибки в содержимом папок! "
                                         "Замена отменена. Проверьте логи для деталей.")
@@ -1057,56 +1138,7 @@ class ModernFolderRenamer:
         except Exception as e:
             self.log(f"Ошибка при замене: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка: {str(e)}")
-    
-    def get_attack_expected_count(self, attack_name):
-        """Получает ожидаемое количество папок для атаки"""
-        if attack_name not in self.attack_ranges:
-            return 0
-        
-        min_num = None
-        max_num = None
-        for device in ["kozen 10", "kozen 12"]:
-            if device in self.attack_ranges[attack_name]:
-                start, end = self.attack_ranges[attack_name][device]
-                if min_num is None or start < min_num:
-                    min_num = start
-                if max_num is None or end > max_num:
-                    max_num = end
-        
-        if min_num is not None and max_num is not None:
-            return max_num - min_num + 1
-        return 0
-    
-    def check_attack_structure(self, attack_folder, attack_type):
-        """Проверяет структуру папки атаки и возвращает информацию о ней"""
-        try:
-            items = os.listdir(attack_folder)
-            
-            has_kozen10 = "kozen 10" in items and os.path.isdir(os.path.join(attack_folder, "kozen 10"))
-            has_kozen12 = "kozen 12" in items and os.path.isdir(os.path.join(attack_folder, "kozen 12"))
-            
-            structure_type = ""
-            expected_total = self.get_attack_expected_count(attack_type)
-            
-            if has_kozen10 or has_kozen12:
-                structure_type = "раздельная (с устройствами)"
-            else:
-                structure_type = "плоская (все папки в корне)"
-            
-            return {
-                "has_kozen10": has_kozen10,
-                "has_kozen12": has_kozen12,
-                "structure_type": structure_type,
-                "expected_total": expected_total
-            }
-        except Exception as e:
-            return {
-                "has_kozen10": False,
-                "has_kozen12": False,
-                "structure_type": "ошибка доступа",
-                "expected_total": 0
-            }
-    
+
     def check_attack(self):
         """Проверка отдельной атаки"""
         attack_folder = self.attack_check_entry.get()
@@ -1157,6 +1189,7 @@ class ModernFolderRenamer:
                         
                         try:
                             all_items = os.listdir(device_folder)
+                            # ПРИ ПРОВЕРКЕ АТАКИ проверяем числовые имена только для папок атак
                             folders = [f for f in all_items 
                                       if os.path.isdir(os.path.join(device_folder, f)) and f.isdigit()]
                             
@@ -1180,7 +1213,8 @@ class ModernFolderRenamer:
                             for folder in folders:
                                 folder_path = os.path.join(device_folder, folder)
                                 self.check_log(f"📂 Папка {folder}:", "DETAIL", 2)
-                                if not self.check_folder_content(folder_path, log_errors=True, indent=3):
+                                # check_names=False - внутренние папки могут называться как угодно
+                                if not self.check_folder_content(folder_path, log_errors=True, indent=3, check_names=False):
                                     folder_errors += 1
                                 total_checked += 1
                             
@@ -1200,6 +1234,7 @@ class ModernFolderRenamer:
                 
                 try:
                     all_items = os.listdir(attack_folder)
+                    # ПРИ ПРОВЕРКЕ АТАКИ проверяем числовые имена только для папок атак
                     folders = [f for f in all_items 
                               if os.path.isdir(os.path.join(attack_folder, f)) and f.isdigit()]
                     
@@ -1223,7 +1258,8 @@ class ModernFolderRenamer:
                     for folder in folders:
                         folder_path = os.path.join(attack_folder, folder)
                         self.check_log(f"📂 Папка {folder}:", "DETAIL", 2)
-                        if not self.check_folder_content(folder_path, log_errors=True, indent=3):
+                        # check_names=False - внутренние папки могут называться как угодно
+                        if not self.check_folder_content(folder_path, log_errors=True, indent=3, check_names=False):
                             folder_errors += 1
                         total_checked += 1
                     
@@ -1247,12 +1283,42 @@ class ModernFolderRenamer:
             else:
                 self.check_log(f"❌ ПРОВЕРКА ЗАВЕРШЕНА С ОШИБКАМИ", "ERROR")
                 self.check_log(f"📊 Обнаружено ошибок: {total_errors}", "ERROR")
-                messagebox.showwarning("Проверка завершена", f"Обнаружены ошибки: {total_errors}")
+                messagebox.showwarning("Проверка завершena", f"Обнаружены ошибки: {total_errors}")
                 
         except Exception as e:
             self.check_log(f"❌ Ошибка при проверке атаки: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка при проверке: {str(e)}")
-    
+
+    def check_attack_structure(self, attack_folder, attack_type):
+        """Проверяет структуру папки атаки и возвращает информацию о ней"""
+        try:
+            items = os.listdir(attack_folder)
+            
+            has_kozen10 = "kozen 10" in items and os.path.isdir(os.path.join(attack_folder, "kozen 10"))
+            has_kozen12 = "kozen 12" in items and os.path.isdir(os.path.join(attack_folder, "kozen 12"))
+            
+            structure_type = ""
+            expected_total = self.get_attack_expected_count(attack_type, "все")
+            
+            if has_kozen10 or has_kozen12:
+                structure_type = "раздельная (с устройствами)"
+            else:
+                structure_type = "плоская (все папки в корне)"
+            
+            return {
+                "has_kozen10": has_kozen10,
+                "has_kozen12": has_kozen12,
+                "structure_type": structure_type,
+                "expected_total": expected_total
+            }
+        except Exception as e:
+            return {
+                "has_kozen10": False,
+                "has_kozen12": False,
+                "structure_type": "ошибка доступа",
+                "expected_total": 0
+            }
+
     def check_id(self):
         """Проверка ID с проверкой содержимого папок"""
         id_folder = self.id_check_entry.get()
@@ -1335,7 +1401,7 @@ class ModernFolderRenamer:
                                     for folder in folders:
                                         folder_path = os.path.join(device_folder, folder)
                                         self.check_log(f"📂 Папка {folder}:", "DETAIL", 3)
-                                        if not self.check_folder_content(folder_path, log_errors=True, indent=4):
+                                        if not self.check_folder_content(folder_path, log_errors=True, indent=4, check_names=False):
                                             device_content_errors += 1
                                             content_errors += 1
                                     
@@ -1365,7 +1431,7 @@ class ModernFolderRenamer:
                             for folder in folders:
                                 folder_path = os.path.join(attack_folder, folder)
                                 self.check_log(f"📂 Папка {folder}:", "DETAIL", 3)
-                                if not self.check_folder_content(folder_path, log_errors=True, indent=4):
+                                if not self.check_folder_content(folder_path, log_errors=True, indent=4, check_names=False):
                                     flat_content_errors += 1
                                     content_errors += 1
                             
@@ -1409,7 +1475,7 @@ class ModernFolderRenamer:
         except Exception as e:
             self.check_log(f"❌ Ошибка при проверке ID: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка при проверке: {str(e)}")
-    
+
     def check_global(self):
         """Общая проверка проекта с проверкой содержимого папок"""
         project_folder = self.global_check_entry.get()
@@ -1522,7 +1588,7 @@ class ModernFolderRenamer:
                                             for folder in folders:
                                                 folder_path = os.path.join(device_folder, folder)
                                                 self.check_log(f"📂 Папка {folder}:", "DETAIL", 4)
-                                                if not self.check_folder_content(folder_path, log_errors=True, indent=5):
+                                                if not self.check_folder_content(folder_path, log_errors=True, indent=5, check_names=False):
                                                     device_content_errors += 1
                                                     attack_content_errors += 1
                                             
@@ -1552,7 +1618,7 @@ class ModernFolderRenamer:
                                     for folder in folders:
                                         folder_path = os.path.join(attack_folder, folder)
                                         self.check_log(f"📂 Папка {folder}:", "DETAIL", 4)
-                                        if not self.check_folder_content(folder_path, log_errors=True, indent=5):
+                                        if not self.check_folder_content(folder_path, log_errors=True, indent=5, check_names=False):
                                             flat_content_errors += 1
                                             attack_content_errors += 1
                                     
@@ -1610,7 +1676,7 @@ class ModernFolderRenamer:
         except Exception as e:
             self.check_log(f"❌ Ошибка при общей проверке проекта: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка при проверке: {str(e)}")
-    
+
     def load_attack_data(self, event=None):
         """Загрузка данных выбранной атаки для редактирования"""
         attack = self.edit_attack_var.get()
