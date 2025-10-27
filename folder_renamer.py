@@ -11,7 +11,7 @@ class ModernFolderRenamer:
     def __init__(self, root):
         self.root = root
         self.root.title("Folder Manager - Kozen")
-        self.root.geometry("900x800")
+        self.root.geometry("1400x1200")
         self.root.configure(bg='#f8f9fa')
         
         # Центрирование окна
@@ -97,21 +97,20 @@ class ModernFolderRenamer:
     def load_attack_config(self):
         """Загрузка конфигурации атак из JSON файла"""
         default_config = {
-            "2": {"kozen 10": (91, 170), "kozen 12": (171, 250)},
-            "3": {"kozen 10": (251, 346), "kozen 12": (347, 442)},
-            "4": {"kozen 10": (443, 458), "kozen 12": (459, 474)},
-            "5": {"kozen 10": (475, 514), "kozen 12": (515, 554)},
-            "6": {"kozen 10": (555, 594)},
-            "7": {"kozen 12": (595, 634)},
-            "8": {"kozen 10": (635, 733)},
-            "9": {"kozen 12": (734, 832)}
+            "02 2D Mask": {"kozen 10": (91, 170), "kozen 12": (171, 250)},
+            "03 2D Mask": {"kozen 10": (251, 346), "kozen 12": (347, 442)},
+            "04 2D Mask": {"kozen 10": (443, 458), "kozen 12": (459, 474)},
+            "05 2D Mask": {"kozen 10": (475, 514), "kozen 12": (515, 554)},
+            "06 2D Mask": {"kozen 10": (555, 594)},
+            "07 2D Mask": {"kozen 12": (595, 634)},
+            "08 3D Mask": {"kozen 10": (635, 733)},
+            "09 3D Mask": {"kozen 12": (734, 832)}
         }
         
         try:
             if os.path.exists(self.config_file):
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     self.attack_ranges = json.load(f)
-                    # Конвертируем строки обратно в кортежи
                     for attack, devices in self.attack_ranges.items():
                         for device, range_tuple in devices.items():
                             if isinstance(range_tuple, list):
@@ -162,11 +161,16 @@ class ModernFolderRenamer:
         main_tab = self.create_rounded_frame(notebook)
         notebook.add(main_tab, text="🔄 Основные функции")
         
+        # Вкладка проверки
+        check_tab = self.create_rounded_frame(notebook)
+        notebook.add(check_tab, text="🔍 Проверка")
+        
         # Вкладка настроек атак
         settings_tab = self.create_rounded_frame(notebook)
         notebook.add(settings_tab, text="⚙️ Настройки атак")
         
         self.setup_main_tab(main_tab)
+        self.setup_check_tab(check_tab)
         self.setup_settings_tab(settings_tab)
         
         # Область для логов
@@ -213,15 +217,17 @@ class ModernFolderRenamer:
         settings_frame = self.create_rounded_frame(parent)
         settings_frame.pack(fill="x", padx=15, pady=10)
         
-        # Устройство
+        # Устройство (теперь опциональное)
         tk.Label(settings_frame, text="📱 Устройство:", 
                 font=("Segoe UI", 10, "bold"),
                 bg=self.colors['surface']).grid(row=0, column=0, sticky="w", pady=(15, 10), padx=15)
         
-        self.device_var = tk.StringVar(value="kozen 10")
+        self.device_var = tk.StringVar(value="все")
         device_frame = tk.Frame(settings_frame, bg=self.colors['surface'])
         device_frame.grid(row=0, column=1, sticky="w", pady=(15, 10), padx=15)
         
+        ttk.Radiobutton(device_frame, text="Все", variable=self.device_var, 
+                       value="все", command=self.update_range_info).pack(side="left", padx=(0, 20))
         ttk.Radiobutton(device_frame, text="Kozen 10", variable=self.device_var, 
                        value="kozen 10", command=self.update_range_info).pack(side="left", padx=(0, 20))
         ttk.Radiobutton(device_frame, text="Kozen 12", variable=self.device_var, 
@@ -232,7 +238,7 @@ class ModernFolderRenamer:
                 font=("Segoe UI", 10, "bold"),
                 bg=self.colors['surface']).grid(row=1, column=0, sticky="w", pady=10, padx=15)
         
-        self.attack_var = tk.StringVar(value="2")
+        self.attack_var = tk.StringVar(value="02 2D Mask")
         self.attack_combo = ttk.Combobox(settings_frame, textvariable=self.attack_var, 
                                        values=list(self.attack_ranges.keys()), 
                                        state="readonly", font=("Segoe UI", 10))
@@ -274,7 +280,7 @@ class ModernFolderRenamer:
         self.replace_entry = ttk.Entry(input_frame, font=("Segoe UI", 10))
         self.replace_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
         
-        tk.Label(replace_frame, text="Пример: 522, 530-532,528 (сохраняется порядок ввода!)", 
+        tk.Label(replace_frame, text="Пример: 522, 530-532,528)", 
                 font=("Segoe UI", 9),
                 bg=self.colors['surface'],
                 fg=self.colors['text_secondary']).pack(anchor="w", padx=15, pady=(0, 15))
@@ -293,8 +299,132 @@ class ModernFolderRenamer:
         
         self.update_range_info()
     
+    def setup_check_tab(self, parent):
+        paned_window = ttk.PanedWindow(parent, orient=tk.HORIZONTAL)
+        paned_window.pack(fill="both", expand=True, padx=15, pady=15)
+        
+        # Левая часть - элементы управления
+        left_frame = self.create_rounded_frame(paned_window)
+        paned_window.add(left_frame, weight=1)
+        
+        # Правая часть - логи
+        right_frame = self.create_rounded_frame(paned_window)
+        paned_window.add(right_frame, weight=2)
+        
+        # Настройка левой части
+        attack_check_frame = self.create_rounded_frame(left_frame)
+        attack_check_frame.pack(fill="x", padx=15, pady=10)
+        
+        tk.Label(attack_check_frame, text="🎯 Проверка атаки", 
+                font=("Segoe UI", 12, "bold"),
+                bg=self.colors['surface']).pack(anchor="w", pady=(15, 10), padx=15)
+        
+        input_frame1 = tk.Frame(attack_check_frame, bg=self.colors['surface'])
+        input_frame1.pack(fill="x", padx=15, pady=10)
+        
+        tk.Label(input_frame1, text="Папка атаки:", 
+                font=("Segoe UI", 10),
+                bg=self.colors['surface']).grid(row=0, column=0, sticky="w")
+        
+        self.attack_check_entry = ttk.Entry(input_frame1, font=("Segoe UI", 10))
+        self.attack_check_entry.grid(row=0, column=1, sticky="ew", padx=10)
+        
+        ttk.Button(input_frame1, text="Обзор", 
+                  command=lambda: self.browse_folder(self.attack_check_entry),
+                  style="Secondary.TButton").grid(row=0, column=2, padx=(5, 0))
+        
+        input_frame1.columnconfigure(1, weight=1)
+        
+        ttk.Button(attack_check_frame, text="🔍 Проверить атаку", 
+                  command=self.check_attack, 
+                  style="Rounded.TButton").pack(pady=10)
+        
+        # Фрейм для проверки ID
+        id_check_frame = self.create_rounded_frame(left_frame)
+        id_check_frame.pack(fill="x", padx=15, pady=10)
+        
+        tk.Label(id_check_frame, text="🆔 Проверка ID", 
+                font=("Segoe UI", 12, "bold"),
+                bg=self.colors['surface']).pack(anchor="w", pady=(15, 10), padx=15)
+        
+        input_frame2 = tk.Frame(id_check_frame, bg=self.colors['surface'])
+        input_frame2.pack(fill="x", padx=15, pady=10)
+        
+        tk.Label(input_frame2, text="Папка ID:", 
+                font=("Segoe UI", 10),
+                bg=self.colors['surface']).grid(row=0, column=0, sticky="w")
+        
+        self.id_check_entry = ttk.Entry(input_frame2, font=("Segoe UI", 10))
+        self.id_check_entry.grid(row=0, column=1, sticky="ew", padx=10)
+        
+        ttk.Button(input_frame2, text="Обзор", 
+                  command=lambda: self.browse_folder(self.id_check_entry),
+                  style="Secondary.TButton").grid(row=0, column=2, padx=(5, 0))
+        
+        input_frame2.columnconfigure(1, weight=1)
+        
+        ttk.Button(id_check_frame, text="🔍 Проверить ID", 
+                  command=self.check_id, 
+                  style="Rounded.TButton").pack(pady=10)
+        
+        # Фрейм для общей проверки
+        global_check_frame = self.create_rounded_frame(left_frame)
+        global_check_frame.pack(fill="x", padx=15, pady=10)
+        
+        tk.Label(global_check_frame, text="🌐 Общая проверка", 
+                font=("Segoe UI", 12, "bold"),
+                bg=self.colors['surface']).pack(anchor="w", pady=(15, 10), padx=15)
+        
+        input_frame3 = tk.Frame(global_check_frame, bg=self.colors['surface'])
+        input_frame3.pack(fill="x", padx=15, pady=10)
+        
+        tk.Label(input_frame3, text="Общая папка проекта:", 
+                font=("Segoe UI", 10),
+                bg=self.colors['surface']).grid(row=0, column=0, sticky="w")
+        
+        self.global_check_entry = ttk.Entry(input_frame3, font=("Segoe UI", 10))
+        self.global_check_entry.grid(row=0, column=1, sticky="ew", padx=10)
+        
+        ttk.Button(input_frame3, text="Обзор", 
+                  command=lambda: self.browse_folder(self.global_check_entry),
+                  style="Secondary.TButton").grid(row=0, column=2, padx=(5, 0))
+        
+        input_frame3.columnconfigure(1, weight=1)
+        
+        ttk.Button(global_check_frame, text="🔍 Выполнить общую проверку", 
+                  command=self.check_global, 
+                  style="Rounded.TButton").pack(pady=10)
+        
+        # Настройка правой части - логов проверки
+        tk.Label(right_frame, text="📋 Логи проверки", 
+                font=("Segoe UI", 12, "bold"),
+                bg=self.colors['surface']).pack(anchor="w", pady=(15, 10), padx=15)
+        
+        self.check_log_text = scrolledtext.ScrolledText(right_frame, height=35, font=("Consolas", 9),
+                                                       bg='#1e293b', fg='#e2e8f0', 
+                                                       insertbackground='white',
+                                                       relief='flat',
+                                                       padx=10, pady=10)
+        self.check_log_text.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        
+        # Настройка тегов для цветного текста
+        self.check_log_text.tag_config("SUCCESS", foreground="#10b981")
+        self.check_log_text.tag_config("WARNING", foreground="#f59e0b")
+        self.check_log_text.tag_config("ERROR", foreground="#ef4444")
+        self.check_log_text.tag_config("INFO", foreground="#e2e8f0")
+        self.check_log_text.tag_config("CRITICAL", foreground="#ff0000", background="#330000")
+        self.check_log_text.tag_config("HEADER", foreground="#93c5fd", font=("Consolas", 9, "bold"))
+        self.check_log_text.tag_config("SECTION", foreground="#cbd5e1", font=("Consolas", 9, "bold"))
+        self.check_log_text.tag_config("DETAIL", foreground="#94a3b8")
+        
+        # Кнопка очистки логов
+        btn_frame = tk.Frame(right_frame, bg=self.colors['surface'])
+        btn_frame.pack(fill="x", padx=15, pady=(0, 15))
+        
+        ttk.Button(btn_frame, text="🧹 Очистить логи", 
+                  command=self.clear_check_logs, style="Secondary.TButton").pack(side="right")
+    
     def setup_settings_tab(self, parent):
-        # Фрейм для редактирования атак
         edit_frame = self.create_rounded_frame(parent)
         edit_frame.pack(fill="x", padx=15, pady=15)
         
@@ -302,7 +432,6 @@ class ModernFolderRenamer:
                 font=("Segoe UI", 12, "bold"),
                 bg=self.colors['surface']).pack(anchor="w", pady=(15, 20), padx=15)
         
-        # Выбор атаки для редактирования
         input_frame1 = tk.Frame(edit_frame, bg=self.colors['surface'])
         input_frame1.pack(fill="x", padx=15, pady=10)
         
@@ -319,7 +448,6 @@ class ModernFolderRenamer:
         
         input_frame1.columnconfigure(1, weight=1)
         
-        # Поля для диапазонов
         input_frame2 = tk.Frame(edit_frame, bg=self.colors['surface'])
         input_frame2.pack(fill="x", padx=15, pady=10)
         
@@ -339,7 +467,6 @@ class ModernFolderRenamer:
         
         input_frame2.columnconfigure(1, weight=1)
         
-        # Кнопки управления
         button_frame = tk.Frame(edit_frame, bg=self.colors['surface'])
         button_frame.pack(fill="x", padx=15, pady=20)
         
@@ -356,11 +483,11 @@ class ModernFolderRenamer:
         log_frame = self.create_rounded_frame(self.root)
         log_frame.pack(fill="both", expand=True, padx=20, pady=10)
         
-        tk.Label(log_frame, text="📋 Лог выполнения", 
+        tk.Label(log_frame, text="📋 Основные логи выполнения", 
                 font=("Segoe UI", 12, "bold"),
                 bg=self.colors['surface']).pack(anchor="w", pady=(15, 10), padx=15)
         
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=12, font=("Consolas", 9),
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=40, font=("Consolas", 9),
                                                  bg='#1e293b', fg='#e2e8f0', 
                                                  insertbackground='white',
                                                  relief='flat',
@@ -372,8 +499,10 @@ class ModernFolderRenamer:
         self.log_text.tag_config("WARNING", foreground="#f59e0b")
         self.log_text.tag_config("ERROR", foreground="#ef4444")
         self.log_text.tag_config("INFO", foreground="#e2e8f0")
+        self.log_text.tag_config("CRITICAL", foreground="#ff0000", background="#330000")
+        self.log_text.tag_config("HEADER", foreground="#93c5fd", font=("Consolas", 9, "bold"))
+        self.log_text.tag_config("DETAIL", foreground="#94a3b8")
         
-        # Кнопка очистки логов
         btn_frame = tk.Frame(log_frame, bg=self.colors['surface'])
         btn_frame.pack(fill="x", padx=15, pady=(0, 15))
         
@@ -392,11 +521,33 @@ class ModernFolderRenamer:
             self.dest_entry.delete(0, tk.END)
             self.dest_entry.insert(0, folder)
     
+    def browse_folder(self, entry_widget):
+        folder = filedialog.askdirectory()
+        if folder:
+            entry_widget.delete(0, tk.END)
+            entry_widget.insert(0, folder)
+    
     def update_range_info(self, event=None):
         attack = self.attack_var.get()
         device = self.device_var.get()
         
-        if attack in self.attack_ranges and device in self.attack_ranges[attack]:
+        if device == "все":
+            min_num = None
+            max_num = None
+            for device_name in ["kozen 10", "kozen 12"]:
+                if attack in self.attack_ranges and device_name in self.attack_ranges[attack]:
+                    start, end = self.attack_ranges[attack][device_name]
+                    if min_num is None or start < min_num:
+                        min_num = start
+                    if max_num is None or end > max_num:
+                        max_num = end
+            
+            if min_num is not None and max_num is not None:
+                total = max_num - min_num + 1
+                self.range_info.config(text=f"📊 Общий диапазон: {min_num}-{max_num} (всего: {total} номеров)")
+            else:
+                self.range_info.config(text="❌ Нет данных о диапазонах")
+        elif attack in self.attack_ranges and device in self.attack_ranges[attack]:
             start, end = self.attack_ranges[attack][device]
             total = end - start + 1
             self.range_info.config(text=f"📊 Диапазон: {start}-{end} (всего: {total} номеров)")
@@ -415,6 +566,15 @@ class ModernFolderRenamer:
         elif level == "SUCCESS":
             icon = "✅"
             tag = "SUCCESS"
+        elif level == "CRITICAL":
+            icon = "🚫"
+            tag = "CRITICAL"
+        elif level == "HEADER":
+            icon = "📋"
+            tag = "HEADER"
+        elif level == "DETAIL":
+            icon = "  📄"
+            tag = "DETAIL"
         else:
             icon = "ℹ️"
             tag = "INFO"
@@ -425,40 +585,171 @@ class ModernFolderRenamer:
         self.log_text.see(tk.END)
         self.root.update()
     
+    def check_log(self, message, level="INFO", indent=0):
+        """Логирование для вкладки проверки с поддержкой отступов"""
+        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        
+        if level == "WARNING":
+            icon = "⚠️"
+            tag = "WARNING"
+        elif level == "ERROR":
+            icon = "❌"
+            tag = "ERROR"
+        elif level == "SUCCESS":
+            icon = "✅"
+            tag = "SUCCESS"
+        elif level == "CRITICAL":
+            icon = "🚫"
+            tag = "CRITICAL"
+        elif level == "HEADER":
+            icon = "📋"
+            tag = "HEADER"
+        elif level == "SECTION":
+            icon = "  📁"
+            tag = "SECTION"
+        elif level == "DETAIL":
+            icon = "    📄"
+            tag = "DETAIL"
+        else:
+            icon = "ℹ️"
+            tag = "INFO"
+        
+        indent_str = "  " * indent
+        formatted_message = f"{indent_str}{icon} {message}\n"
+        
+        self.check_log_text.insert(tk.END, formatted_message, tag)
+        self.check_log_text.see(tk.END)
+        self.root.update()
+    
     def clear_logs(self):
         self.log_text.delete(1.0, tk.END)
         self.log("Логи очищены", "INFO")
     
-    def check_folder_content(self, folder_path):
-        """Проверка содержимого папки"""
+    def clear_check_logs(self):
+        self.check_log_text.delete(1.0, tk.END)
+        self.check_log("Логи проверки очищены", "INFO")
+    
+    def check_folder_content(self, folder_path, log_errors=True, indent=0):
+        """Проверка содержимого папки - возвращает True если всё в порядке, False если есть ошибки"""
         try:
             items = os.listdir(folder_path)
             folders = [item for item in items if os.path.isdir(os.path.join(folder_path, item))]
             files = [item for item in items if os.path.isfile(os.path.join(folder_path, item))]
             
+            errors = []
+            warnings = []
+            
             # Проверка количества папок
             if len(folders) != 3:
-                self.log(f"ПРЕДУПРЕЖДЕНИЕ: В папке {os.path.basename(folder_path)} найдено {len(folders)} папок вместо 3!", "WARNING")
-                return False
+                errors.append(f"Найдено {len(folders)} папок вместо 3")
             
             # Проверка наличия BestShot файла
             bestshot_files = [f for f in files if "BestShot" in f]
             if not bestshot_files:
-                self.log(f"ПРЕДУПРЕЖДЕНИЕ: В папке {os.path.basename(folder_path)} не найден файл BestShot!", "WARNING")
-                return False
+                errors.append("Не найден файл BestShot")
+            elif len(bestshot_files) > 1:
+                warnings.append(f"Найдено {len(bestshot_files)} файлов BestShot")
             
             # Проверка что папки не пустые
             for folder in folders:
                 folder_full_path = os.path.join(folder_path, folder)
                 if not os.listdir(folder_full_path):
-                    self.log(f"ПРЕДУПРЕЖДЕНИЕ: Папка {folder} в {os.path.basename(folder_path)} пустая!", "WARNING")
-                    return False
+                    errors.append(f"Папка '{folder}' пустая")
             
-            return True
+            if log_errors:
+                if errors:
+                    for error in errors:
+                        self.check_log(f"Ошибка: {error}", "ERROR", indent)
+                if warnings:
+                    for warning in warnings:
+                        self.check_log(f"Предупреждение: {warning}", "WARNING", indent)
+                if not errors and not warnings:
+                    self.check_log("Содержимое папки в порядке", "SUCCESS", indent)
+            
+            return len(errors) == 0
             
         except Exception as e:
-            self.log(f"Ошибка проверки папки {folder_path}: {str(e)}", "ERROR")
+            if log_errors:
+                error_msg = f"Ошибка проверки папки: {str(e)}"
+                self.check_log(error_msg, "ERROR", indent)
             return False
+    
+    def get_folder_creation_time(self, folder_path):
+        """Получает время создания папки"""
+        try:
+            return os.path.getctime(folder_path)
+        except:
+            return 0
+    
+    def calculate_shooting_time(self, folders, source_folder):
+        """Вычисляет время съёмки на основе дат создания папок с учётом нескольких дней"""
+        if not folders:
+            return "не удалось вычислить"
+        
+        try:
+            # Получаем времена создания всех папок
+            creation_times = []
+            for folder in folders:
+                folder_path = os.path.join(source_folder, folder)
+                creation_time = self.get_folder_creation_time(folder_path)
+                if creation_time > 0:  # Проверяем, что время получено корректно
+                    creation_times.append((folder, creation_time))
+            
+            if not creation_times:
+                return "не удалось вычислитъ"
+            
+            # Группируем папки по дням
+            days_dict = {}
+            for folder_name, timestamp in creation_times:
+                # Преобразуем timestamp в datetime
+                dt = datetime.datetime.fromtimestamp(timestamp)
+                # Получаем дату без времени (ключ для группировки)
+                date_key = dt.date()
+                
+                if date_key not in days_dict:
+                    days_dict[date_key] = []
+                
+                days_dict[date_key].append((folder_name, timestamp))
+            
+            # Сортируем папки внутри каждого дня по времени создания
+            for date_key in days_dict:
+                days_dict[date_key].sort(key=lambda x: x[1])
+            
+            # Вычисляем общее время съёмки
+            total_seconds = 0
+            
+            for date_key, day_folders in days_dict.items():
+                if len(day_folders) > 1:
+                    # Время съёмки за день = разница между последней и первой папкой
+                    first_folder_time = day_folders[0][1]
+                    last_folder_time = day_folders[-1][1]
+                    day_duration = last_folder_time - first_folder_time
+                    total_seconds += day_duration
+                    
+                    # Логируем информацию о дне
+                    first_dt = datetime.datetime.fromtimestamp(first_folder_time)
+                    last_dt = datetime.datetime.fromtimestamp(last_folder_time)
+                    self.log(f"📅 День {date_key}: {first_dt.strftime('%H:%M:%S')} - {last_dt.strftime('%H:%M:%S')} "
+                           f"({len(day_folders)} папок, время: {self.format_duration(day_duration)})", "DETAIL")
+                elif len(day_folders) == 1:
+                    # Если папка одна в день - время съёмки 0
+                    self.log(f"📅 День {date_key}: 1 папка, время съёмки: 00:00:00", "DETAIL")
+            
+            if total_seconds == 0:
+                return "00:00:00"
+            
+            return self.format_duration(total_seconds)
+            
+        except Exception as e:
+            self.log(f"Ошибка вычисления времени съёмки: {str(e)}", "WARNING")
+            return "не удалось вычислить"
+    
+    def format_duration(self, total_seconds):
+        """Форматирует длительность в формат HH:MM:SS"""
+        hours = int(total_seconds // 3600)
+        minutes = int((total_seconds % 3600) // 60)
+        seconds = int(total_seconds % 60)
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
     
     def parse_number_range(self, range_str):
         """Парсинг диапазона номеров с сохранением порядка ввода"""
@@ -470,7 +761,6 @@ class ModernFolderRenamer:
                 continue
                 
             if '-' in part:
-                # Обрабатываем диапазон
                 range_parts = part.split('-')
                 if len(range_parts) != 2:
                     return None
@@ -479,23 +769,19 @@ class ModernFolderRenamer:
                     start = int(range_parts[0].strip())
                     end = int(range_parts[1].strip())
                     
-                    # Определяем направление диапазона
                     if start <= end:
-                        # Возрастающий диапазон
                         numbers.extend(range(start, end + 1))
                     else:
-                        # Убывающий диапазон  
                         numbers.extend(range(start, end - 1, -1))
                 except ValueError:
                     return None
             else:
-                # Одиночный номер
                 try:
                     numbers.append(int(part))
                 except ValueError:
                     return None
         
-        return numbers  # Возвращаем в порядке ввода, БЕЗ сортировки!
+        return numbers
     
     def natural_sort_key(self, s):
         """Ключ для естественной сортировки как в проводнике Windows"""
@@ -509,7 +795,6 @@ class ModernFolderRenamer:
         attack = self.attack_var.get()
         check_content = self.check_content_var.get()
         
-        # Проверка введенных данных
         if not source_folder or not dest_folder:
             messagebox.showerror("Ошибка", "Пожалуйста, выберите исходную папку и папку назначения")
             return
@@ -518,93 +803,127 @@ class ModernFolderRenamer:
             messagebox.showerror("Ошибка", "Исходная папка не существует")
             return
         
-        # Проверка доступности комбинации атаки и устройства
-        if attack not in self.attack_ranges or device not in self.attack_ranges[attack]:
+        folders = [f for f in os.listdir(source_folder) 
+                  if os.path.isdir(os.path.join(source_folder, f))]
+        
+        folders.sort(key=self.natural_sort_key)
+        
+        if not folders:
+            messagebox.showwarning("Предупреждение", "В исходной папке не найдено папок для обработки")
+            return
+        
+        shooting_time = self.calculate_shooting_time(folders, source_folder)
+        
+        if device != "все" and (attack not in self.attack_ranges or device not in self.attack_ranges[attack]):
             messagebox.showerror("Ошибка", f"Выбранная комбинация атаки {attack} и устройства {device} недоступна")
             return
         
-        start_num, end_num = self.attack_ranges[attack][device]
-        
         try:
-            # Создаем папку назначения если не существует
             os.makedirs(dest_folder, exist_ok=True)
-            
-            # Создаем подпапку для атаки и устройства
-            attack_folder = os.path.join(dest_folder, f"{attack}")
-            device_folder = os.path.join(attack_folder, device)
-            os.makedirs(device_folder, exist_ok=True)
+            attack_folder = os.path.join(dest_folder, attack)
+            os.makedirs(attack_folder, exist_ok=True)
             
             self.log("=" * 70, "SUCCESS")
-            self.log(f"Начало обработки...", "SUCCESS")
-            self.log(f"Источник: {source_folder}")
-            self.log(f"Назначение: {device_folder}")
-            self.log(f"Устройство: {device}")
-            self.log(f"Атака: {attack}")
-            self.log(f"Диапазон номеров: {start_num} - {end_num}")
-            self.log(f"Проверка содержимого: {'ВКЛ' if check_content else 'ВЫКЛ'}")
+            self.log(f"🚀 Начало обработки...", "HEADER")
+            self.log(f"📊 Найдено папок для обработки: {len(folders)}", "INFO")
             
-            # Получаем список папок для обработки
-            folders = [f for f in os.listdir(source_folder) 
-                      if os.path.isdir(os.path.join(source_folder, f))]
+            if check_content:
+                self.log("🔍 Начинается предварительная проверка содержимого...", "INFO")
+                content_errors = False
+                
+                for folder in folders:
+                    old_path = os.path.join(source_folder, folder)
+                    if not self.check_folder_content(old_path, log_errors=False):
+                        content_errors = True
+                
+                if content_errors:
+                    self.log("🚫 ОБНАРУЖЕНЫ ОШИБКИ! Переименование отменено.", "ERROR")
+                    messagebox.showerror("Ошибка", 
+                                        "Обнаружены ошибки в содержимом папок! "
+                                        "Переименование отменено. Проверьте логи для деталей.")
+                    return
             
-            # Сортируем папки по имени с естественной сортировкой
-            folders.sort(key=self.natural_sort_key)
-            
-            if not folders:
-                messagebox.showwarning("Предупреждение", "В исходной папке не найдено папок для обработки")
-                return
-            
-            self.log(f"Найдено папок для обработки: {len(folders)}")
-            self.log(f"Отсортированные папки: {folders}")
-            
-            # Проверяем достаточно ли номеров в диапазоне
-            available_numbers = end_num - start_num + 1
-            if len(folders) > available_numbers:
-                messagebox.showerror("Ошибка", 
-                    f"Недостаточно номеров в диапазоне! "
-                    f"Нужно: {len(folders)}, доступно: {available_numbers}")
-                return
-            
-            # Обрабатываем папки
-            current_number = start_num
             processed_count = 0
-            content_warnings = 0
             
-            for folder in folders:
-                old_path = os.path.join(source_folder, folder)
-                new_name = str(current_number)
-                new_path = os.path.join(device_folder, new_name)
+            if device == "все":
+                min_num = None
+                max_num = None
                 
-                # Проверка содержимого если включено
-                if check_content:
-                    if not self.check_folder_content(old_path):
-                        content_warnings += 1
+                for device_name in ["kozen 10", "kozen 12"]:
+                    if attack in self.attack_ranges and device_name in self.attack_ranges[attack]:
+                        start_num, end_num = self.attack_ranges[attack][device_name]
+                        if min_num is None or start_num < min_num:
+                            min_num = start_num
+                        if max_num is None or end_num > max_num:
+                            max_num = end_num
                 
-                # Удаляем существующую папку (перезапись)
-                if os.path.exists(new_path):
-                    shutil.rmtree(new_path)
-                    self.log(f"Удалена существующая папка: {new_name}", "WARNING")
+                if min_num is None or max_num is None:
+                    messagebox.showerror("Ошибка", f"Для атаки {attack} не заданы диапазоны")
+                    return
                 
-                # Копируем и переименовываем папку
-                shutil.copytree(old_path, new_path)
-                self.log(f"Переименовано: {folder} -> {new_name}", "SUCCESS")
-                processed_count += 1
+                available_numbers = max_num - min_num + 1
                 
-                current_number += 1
+                if len(folders) > available_numbers:
+                    messagebox.showerror("Ошибка", 
+                        f"Недостаточно номеров в диапазоне! "
+                        f"Нужно: {len(folders)}, доступно: {available_numbers}")
+                    return
+                
+                current_number = min_num
+                
+                for folder in folders:
+                    old_path = os.path.join(source_folder, folder)
+                    new_name = str(current_number)
+                    new_path = os.path.join(attack_folder, new_name)
+                    
+                    if os.path.exists(new_path):
+                        shutil.rmtree(new_path)
+                        self.log(f"Удалена существующая папка: {new_name}", "WARNING")
+                    
+                    shutil.copytree(old_path, new_path)
+                    self.log(f"Обработано: {folder} → {new_name}", "SUCCESS")
+                    processed_count += 1
+                    current_number += 1
+            else:
+                device_folder = os.path.join(attack_folder, device)
+                os.makedirs(device_folder, exist_ok=True)
+                
+                start_num, end_num = self.attack_ranges[attack][device]
+                available_numbers = end_num - start_num + 1
+                
+                if len(folders) > available_numbers:
+                    messagebox.showerror("Ошибка", 
+                        f"Недостаточно номеров в диапазоне! "
+                        f"Нужно: {len(folders)}, доступно: {available_numbers}")
+                    return
+                
+                current_number = start_num
+                
+                for folder in folders:
+                    old_path = os.path.join(source_folder, folder)
+                    new_name = str(current_number)
+                    new_path = os.path.join(device_folder, new_name)
+                    
+                    if os.path.exists(new_path):
+                        shutil.rmtree(new_path)
+                        self.log(f"Удалена существующая папка: {new_name}", "WARNING")
+                    
+                    shutil.copytree(old_path, new_path)
+                    self.log(f"Обработано: {folder} → {new_name}", "SUCCESS")
+                    processed_count += 1
+                    current_number += 1
             
             self.log("=" * 70, "SUCCESS")
-            self.log(f"Обработка завершена успешно!", "SUCCESS")
-            self.log(f"Успешно обработано: {processed_count} папок")
-            if content_warnings > 0:
-                self.log(f"Обнаружено предупреждений по содержимому: {content_warnings}", "WARNING")
+            self.log(f"✅ Обработка завершена успешно! Обработано: {processed_count} папок", "SUCCESS")
+            self.log(f"⏱️ Общее время съёмки: {shooting_time}", "INFO")
             
             messagebox.showinfo("Успех", 
                                f"Обработка завершена!\n\n"
                                f"✅ Успешно обработано: {processed_count} папок\n"
-                               f"⚠️ Предупреждений: {content_warnings}")
+                               f"⏱️ Время съёмки: {shooting_time}")
             
         except Exception as e:
-            self.log(f"Критическая ошибка: {str(e)}", "ERROR")
+            self.log(f"Ошибка: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка: {str(e)}")
     
     def execute_replacement(self):
@@ -619,85 +938,678 @@ class ModernFolderRenamer:
             messagebox.showerror("Ошибка", "Введите номера папок для замены")
             return
         
-        # Парсим номера (ВАЖНО: без сортировки, сохраняем порядок ввода!)
         replace_numbers = self.parse_number_range(replace_numbers_str)
         if replace_numbers is None:
             messagebox.showerror("Ошибка", "Неверный формат номеров. Используйте: 522,530-532,528")
             return
         
-        # Проверяем доступность диапазона
-        if attack not in self.attack_ranges or device not in self.attack_ranges[attack]:
+        source_folders = [f for f in os.listdir(source_folder) 
+                        if os.path.isdir(os.path.join(source_folder, f))]
+        
+        source_folders.sort(key=self.natural_sort_key)
+        
+        if len(source_folders) != len(replace_numbers):
+            messagebox.showerror("Ошибка", 
+                f"Количество папок в исходной папке ({len(source_folders)}) "
+                f"не соответствует количеству номеров для замены ({len(replace_numbers)})")
+            return
+        
+        shooting_time = self.calculate_shooting_time(source_folders, source_folder)
+        
+        if device != "все" and (attack not in self.attack_ranges or device not in self.attack_ranges[attack]):
             messagebox.showerror("Ошибка", f"Выбранная комбинация атаки {attack} и устройства {device} недоступна")
             return
         
-        start_num, end_num = self.attack_ranges[attack][device]
-        
-        # Проверяем что номера входят в диапазон
-        for num in replace_numbers:
-            if num < start_num or num > end_num:
-                messagebox.showerror("Ошибка", f"Номер {num} вне диапазона {start_num}-{end_num}")
-                return
-        
         try:
-            attack_folder = os.path.join(dest_folder, f"{attack}")
-            device_folder = os.path.join(attack_folder, device)
+            attack_folder = os.path.join(dest_folder, attack)
             
-            if not os.path.exists(device_folder):
-                messagebox.showerror("Ошибка", f"Папка назначения {device_folder} не существует")
-                return
+            if device == "все":
+                min_num = None
+                max_num = None
+                
+                for device_name in ["kozen 10", "kozen 12"]:
+                    if attack in self.attack_ranges and device_name in self.attack_ranges[attack]:
+                        start_num, end_num = self.attack_ranges[attack][device_name]
+                        if min_num is None or start_num < min_num:
+                            min_num = start_num
+                        if max_num is None or end_num > max_num:
+                            max_num = end_num
+                
+                if min_num is None or max_num is None:
+                    messagebox.showerror("Ошибка", f"Для атаки {attack} не заданы диапазоны")
+                    return
+                
+                for num in replace_numbers:
+                    if num < min_num or num > max_num:
+                        messagebox.showerror("Ошибка", f"Номер {num} вне общего диапазона {min_num}-{max_num}")
+                        return
+            else:
+                start_num, end_num = self.attack_ranges[attack][device]
+                for num in replace_numbers:
+                    if num < start_num or num > end_num:
+                        messagebox.showerror("Ошибка", f"Номер {num} вне диапазона {start_num}-{end_num}")
+                        return
             
-            # Получаем список папок для замены
-            source_folders = [f for f in os.listdir(source_folder) 
-                            if os.path.isdir(os.path.join(source_folder, f))]
-            
-            # Сортируем папки по имени с естественной сортировкой
-            source_folders.sort(key=self.natural_sort_key)
-            
-            if len(source_folders) != len(replace_numbers):
-                messagebox.showerror("Ошибка", 
-                    f"Количество папок в исходной папке ({len(source_folders)}) "
-                    f"не соответствует количеству номеров для замены ({len(replace_numbers)})")
+            if not os.path.exists(attack_folder):
+                messagebox.showerror("Ошибка", f"Папка назначения {attack_folder} не существует")
                 return
             
             self.log("=" * 70, "SUCCESS")
-            self.log(f"Начало замены папок...", "SUCCESS")
-            self.log(f"Заменяемые номера (в порядке ввода): {replace_numbers}")
-            self.log(f"Отсортированные исходные папки: {source_folders}")
+            self.log(f"🔄 Начало замены папок...", "HEADER")
+            self.log(f"🔢 Заменяемые номера: {replace_numbers}", "INFO")
             
-            content_warnings = 0
+            if check_content:
+                self.log("🔍 Начинается предварительная проверка содержимого...", "INFO")
+                content_errors = False
+                
+                for folder in source_folders:
+                    old_path = os.path.join(source_folder, folder)
+                    if not self.check_folder_content(old_path, log_errors=False):
+                        content_errors = True
+                
+                if content_errors:
+                    self.log("🚫 ОБНАРУЖЕНЫ ОШИБКИ! Замена отменена.", "ERROR")
+                    messagebox.showerror("Ошибка", 
+                                        "Обнаружены ошибки в содержимом папок! "
+                                        "Замена отменена. Проверьте логи для деталей.")
+                    return
+            
             replaced_count = 0
             
-            # ВАЖНО: сопоставляем строго по порядку
-            # Первая отсортированная папка -> первый номер из списка
-            # Вторая отсортированная папка -> второй номер из списка и т.д.
-            for i, folder in enumerate(source_folders):
-                old_path = os.path.join(source_folder, folder)
-                target_number = replace_numbers[i]  # Берем номер из списка в порядке ввода
-                new_name = str(target_number)
-                new_path = os.path.join(device_folder, new_name)
+            if device == "все":
+                for i, folder in enumerate(source_folders):
+                    old_path = os.path.join(source_folder, folder)
+                    target_number = replace_numbers[i]
+                    new_name = str(target_number)
+                    new_path = os.path.join(attack_folder, new_name)
+                    
+                    if os.path.exists(new_path):
+                        shutil.rmtree(new_path)
+                    
+                    shutil.copytree(old_path, new_path)
+                    self.log(f"Заменено: {folder} → {new_name}", "SUCCESS")
+                    replaced_count += 1
+            else:
+                device_folder = os.path.join(attack_folder, device)
                 
-                # Проверка содержимого если включено
-                if check_content:
-                    if not self.check_folder_content(old_path):
-                        content_warnings += 1
-                
-                # Удаляем старую папку и копируем новую
-                if os.path.exists(new_path):
-                    shutil.rmtree(new_path)
-                
-                shutil.copytree(old_path, new_path)
-                self.log(f"Замена {i+1}: {folder} -> {new_name}", "SUCCESS")
-                replaced_count += 1
+                for i, folder in enumerate(source_folders):
+                    old_path = os.path.join(source_folder, folder)
+                    target_number = replace_numbers[i]
+                    new_name = str(target_number)
+                    new_path = os.path.join(device_folder, new_name)
+                    
+                    if os.path.exists(new_path):
+                        shutil.rmtree(new_path)
+                    
+                    shutil.copytree(old_path, new_path)
+                    self.log(f"Заменено: {folder} → {new_name}", "SUCCESS")
+                    replaced_count += 1
             
             self.log("=" * 70, "SUCCESS")
-            self.log(f"Замена завершена успешно!", "SUCCESS")
-            self.log(f"Заменено папок: {replaced_count}")
+            self.log(f"✅ Замена завершена успешно! Заменено: {replaced_count} папок", "SUCCESS")
+            self.log(f"⏱️ Общее время съёмки: {shooting_time}", "INFO")
             
-            messagebox.showinfo("Успех", f"Замена завершена!\n\n✅ Заменено папок: {replaced_count}")
+            messagebox.showinfo("Успех", 
+                               f"Замена завершена!\n\n"
+                               f"✅ Заменено папок: {replaced_count}\n"
+                               f"⏱️ Время съёмки: {shooting_time}")
             
         except Exception as e:
             self.log(f"Ошибка при замене: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка: {str(e)}")
+    
+    def get_attack_expected_count(self, attack_name):
+        """Получает ожидаемое количество папок для атаки"""
+        if attack_name not in self.attack_ranges:
+            return 0
+        
+        min_num = None
+        max_num = None
+        for device in ["kozen 10", "kozen 12"]:
+            if device in self.attack_ranges[attack_name]:
+                start, end = self.attack_ranges[attack_name][device]
+                if min_num is None or start < min_num:
+                    min_num = start
+                if max_num is None or end > max_num:
+                    max_num = end
+        
+        if min_num is not None and max_num is not None:
+            return max_num - min_num + 1
+        return 0
+    
+    def check_attack_structure(self, attack_folder, attack_type):
+        """Проверяет структуру папки атаки и возвращает информацию о ней"""
+        try:
+            items = os.listdir(attack_folder)
+            
+            has_kozen10 = "kozen 10" in items and os.path.isdir(os.path.join(attack_folder, "kozen 10"))
+            has_kozen12 = "kozen 12" in items and os.path.isdir(os.path.join(attack_folder, "kozen 12"))
+            
+            structure_type = ""
+            expected_total = self.get_attack_expected_count(attack_type)
+            
+            if has_kozen10 or has_kozen12:
+                structure_type = "раздельная (с устройствами)"
+            else:
+                structure_type = "плоская (все папки в корне)"
+            
+            return {
+                "has_kozen10": has_kozen10,
+                "has_kozen12": has_kozen12,
+                "structure_type": structure_type,
+                "expected_total": expected_total
+            }
+        except Exception as e:
+            return {
+                "has_kozen10": False,
+                "has_kozen12": False,
+                "structure_type": "ошибка доступа",
+                "expected_total": 0
+            }
+    
+    def check_attack(self):
+        """Проверка отдельной атаки"""
+        attack_folder = self.attack_check_entry.get()
+        
+        if not attack_folder:
+            messagebox.showerror("Ошибка", "Выберите папку атаки")
+            return
+        
+        if not os.path.exists(attack_folder):
+            messagebox.showerror("Ошибка", "Папка атаки не существует")
+            return
+        
+        self.check_log("=" * 60, "HEADER")
+        self.check_log(f"🔍 ПРОВЕРКА АТАКИ: {os.path.basename(attack_folder)}", "HEADER")
+        self.check_log("=" * 60, "HEADER")
+        
+        try:
+            attack_name = os.path.basename(attack_folder)
+            
+            if attack_name not in self.attack_ranges:
+                self.check_log(f"❌ ОШИБКА: Папка не является известной атакой", "ERROR")
+                self.check_log(f"📝 Название папки: {attack_name}", "INFO")
+                self.check_log(f"📋 Доступные атаки: {', '.join(self.attack_ranges.keys())}", "INFO")
+                return
+            
+            attack_type = attack_name
+            structure_info = self.check_attack_structure(attack_folder, attack_type)
+            
+            self.check_log(f"📁 Структура: {structure_info['structure_type']}", "INFO")
+            self.check_log(f"📊 Ожидаемое количество папок: {structure_info['expected_total']}", "INFO")
+            
+            total_errors = 0
+            total_folders = 0
+            total_checked = 0
+            
+            if structure_info['has_kozen10'] or structure_info['has_kozen12']:
+                for device in ["kozen 10", "kozen 12"]:
+                    if structure_info[f'has_{device.replace(" ", "")}']:
+                        device_folder = os.path.join(attack_folder, device)
+                        
+                        self.check_log(f"", "INFO")
+                        self.check_log(f"📱 Устройство: {device}", "SECTION")
+                        
+                        expected_count = 0
+                        if attack_type in self.attack_ranges and device in self.attack_ranges[attack_type]:
+                            start, end = self.attack_ranges[attack_type][device]
+                            expected_count = end - start + 1
+                        
+                        try:
+                            all_items = os.listdir(device_folder)
+                            folders = [f for f in all_items 
+                                      if os.path.isdir(os.path.join(device_folder, f)) and f.isdigit()]
+                            
+                            other_items = [item for item in all_items if item not in folders]
+                            if other_items:
+                                self.check_log(f"⚠️ Посторонние элементы: {', '.join(other_items)}", "WARNING", 1)
+                            
+                            actual_count = len(folders)
+                            
+                            self.check_log(f"📈 Ожидалось: {expected_count}", "INFO", 1)
+                            self.check_log(f"📈 Найдено: {actual_count}", 
+                                         "SUCCESS" if expected_count == actual_count else "ERROR", 1)
+                            
+                            if expected_count > 0 and actual_count != expected_count:
+                                self.check_log(f"❌ НЕСООТВЕТСТВИЕ КОЛИЧЕСТВА!", "ERROR", 1)
+                                total_errors += 1
+                            
+                            # ПРОВЕРКА СОДЕРЖИМОГО КАЖДОЙ ПАПКИ
+                            self.check_log(f"🔍 Проверка содержимого папок:", "SECTION", 1)
+                            folder_errors = 0
+                            for folder in folders:
+                                folder_path = os.path.join(device_folder, folder)
+                                self.check_log(f"📂 Папка {folder}:", "DETAIL", 2)
+                                if not self.check_folder_content(folder_path, log_errors=True, indent=3):
+                                    folder_errors += 1
+                                total_checked += 1
+                            
+                            total_errors += folder_errors
+                            total_folders += actual_count
+                            
+                            if folder_errors == 0:
+                                self.check_log(f"✅ Все папки устройства проверены успешно", "SUCCESS", 1)
+                            else:
+                                self.check_log(f"❌ Ошибок в папках: {folder_errors}", "ERROR", 1)
+                        except Exception as e:
+                            self.check_log(f"❌ Ошибка доступа к папке устройства: {str(e)}", "ERROR", 1)
+                            total_errors += 1
+            else:
+                self.check_log(f"", "INFO")
+                self.check_log(f"📁 Папки в корне атаки", "SECTION")
+                
+                try:
+                    all_items = os.listdir(attack_folder)
+                    folders = [f for f in all_items 
+                              if os.path.isdir(os.path.join(attack_folder, f)) and f.isdigit()]
+                    
+                    other_items = [item for item in all_items if item not in folders]
+                    if other_items:
+                        self.check_log(f"⚠️ Посторонние элементы: {', '.join(other_items)}", "WARNING", 1)
+                    
+                    actual_count = len(folders)
+                    
+                    self.check_log(f"📈 Ожидалось: {structure_info['expected_total']}", "INFO", 1)
+                    self.check_log(f"📈 Найдено: {actual_count}", 
+                                 "SUCCESS" if structure_info['expected_total'] == actual_count else "ERROR", 1)
+                    
+                    if structure_info['expected_total'] > 0 and actual_count != structure_info['expected_total']:
+                        self.check_log(f"❌ НЕСООТВЕТСТВИЕ КОЛИЧЕСТВА!", "ERROR", 1)
+                        total_errors += 1
+                    
+                    # ПРОВЕРКА СОДЕРЖИМОГО КАЖДОЙ ПАПКИ
+                    self.check_log(f"🔍 Проверка содержимого папок:", "SECTION", 1)
+                    folder_errors = 0
+                    for folder in folders:
+                        folder_path = os.path.join(attack_folder, folder)
+                        self.check_log(f"📂 Папка {folder}:", "DETAIL", 2)
+                        if not self.check_folder_content(folder_path, log_errors=True, indent=3):
+                            folder_errors += 1
+                        total_checked += 1
+                    
+                    total_errors += folder_errors
+                    total_folders += actual_count
+                    
+                    if folder_errors == 0:
+                        self.check_log(f"✅ Все папки проверены успешно", "SUCCESS", 1)
+                    else:
+                        self.check_log(f"❌ Ошибок в папках: {folder_errors}", "ERROR", 1)
+                except Exception as e:
+                    self.check_log(f"❌ Ошибка доступа к папке атаки: {str(e)}", "ERROR", 1)
+                    total_errors += 1
+            
+            self.check_log("", "INFO")
+            self.check_log("=" * 60, "HEADER")
+            if total_errors == 0:
+                self.check_log(f"✅ ПРОВЕРКА ЗАВЕРШЕНА УСПЕШНО!", "SUCCESS")
+                self.check_log(f"📊 Проверено папок: {total_checked}", "SUCCESS")
+                messagebox.showinfo("Проверка завершена", "Атака проверена успешно! Ошибок не обнаружено.")
+            else:
+                self.check_log(f"❌ ПРОВЕРКА ЗАВЕРШЕНА С ОШИБКАМИ", "ERROR")
+                self.check_log(f"📊 Обнаружено ошибок: {total_errors}", "ERROR")
+                messagebox.showwarning("Проверка завершена", f"Обнаружены ошибки: {total_errors}")
+                
+        except Exception as e:
+            self.check_log(f"❌ Ошибка при проверке атаки: {str(e)}", "ERROR")
+            messagebox.showerror("Ошибка", f"Произошла ошибка при проверке: {str(e)}")
+    
+    def check_id(self):
+        """Проверка ID с проверкой содержимого папок"""
+        id_folder = self.id_check_entry.get()
+        
+        if not id_folder:
+            messagebox.showerror("Ошибка", "Выберите папку ID")
+            return
+        
+        if not os.path.exists(id_folder):
+            messagebox.showerror("Ошибка", "Папка ID не существует")
+            return
+        
+        self.check_log("=" * 60, "HEADER")
+        self.check_log(f"🆔 ПРОВЕРКА ID: {os.path.basename(id_folder)}", "HEADER")
+        self.check_log("=" * 60, "HEADER")
+        
+        try:
+            attack_folders = []
+            for item in os.listdir(id_folder):
+                item_path = os.path.join(id_folder, item)
+                if os.path.isdir(item_path) and item in self.attack_ranges:
+                    attack_folders.append((item, item_path))
+            
+            if not attack_folders:
+                self.check_log(f"❌ ОШИБКА: В папке ID не найдено папок атак", "ERROR")
+                self.check_log(f"📋 Доступные атаки: {', '.join(self.attack_ranges.keys())}", "INFO")
+                return
+            
+            total_errors = 0
+            total_attacks = len(attack_folders)
+            total_content_errors = 0
+            
+            self.check_log(f"📊 Найдено атак: {total_attacks}", "INFO")
+            self.check_log("", "INFO")
+            
+            for attack_name, attack_folder in attack_folders:
+                self.check_log(f"🎯 Атака: {attack_name}", "SECTION")
+                
+                try:
+                    structure_info = self.check_attack_structure(attack_folder, attack_name)
+                    
+                    self.check_log(f"📁 Структура: {structure_info['structure_type']}", "INFO", 1)
+                    self.check_log(f"📊 Ожидаемое количество: {structure_info['expected_total']}", "INFO", 1)
+                    
+                    attack_errors = 0
+                    content_errors = 0
+                    actual_total = 0
+                    
+                    if structure_info['has_kozen10'] or structure_info['has_kozen12']:
+                        for device in ["kozen 10", "kozen 12"]:
+                            if structure_info[f'has_{device.replace(" ", "")}']:
+                                device_folder = os.path.join(attack_folder, device)
+                                
+                                if not os.path.exists(device_folder):
+                                    self.check_log(f"⚠️ Папка устройства {device} не существует", "WARNING", 2)
+                                    continue
+                                
+                                expected_count = 0
+                                if attack_name in self.attack_ranges and device in self.attack_ranges[attack_name]:
+                                    start, end = self.attack_ranges[attack_name][device]
+                                    expected_count = end - start + 1
+                                
+                                try:
+                                    folders = [f for f in os.listdir(device_folder) 
+                                              if os.path.isdir(os.path.join(device_folder, f)) and f.isdigit()]
+                                    
+                                    actual_count = len(folders)
+                                    actual_total += actual_count
+                                    
+                                    status = "✅" if expected_count == actual_count else "❌"
+                                    self.check_log(f"{status} {device}: {actual_count}/{expected_count}", 
+                                                 "SUCCESS" if expected_count == actual_count else "ERROR", 2)
+                                    
+                                    if expected_count > 0 and actual_count != expected_count:
+                                        attack_errors += 1
+                                    
+                                    # ПРОВЕРКА СОДЕРЖИМОГО ПАПОК ДЛЯ КАЖДОГО УСТРОЙСТВА
+                                    self.check_log(f"🔍 Проверка содержимого {device}:", "SECTION", 2)
+                                    device_content_errors = 0
+                                    for folder in folders:
+                                        folder_path = os.path.join(device_folder, folder)
+                                        self.check_log(f"📂 Папка {folder}:", "DETAIL", 3)
+                                        if not self.check_folder_content(folder_path, log_errors=True, indent=4):
+                                            device_content_errors += 1
+                                            content_errors += 1
+                                    
+                                    if device_content_errors == 0:
+                                        self.check_log(f"✅ Содержимое {device} проверено успешно", "SUCCESS", 2)
+                                    else:
+                                        self.check_log(f"❌ Ошибок в содержимом {device}: {device_content_errors}", "ERROR", 2)
+                                except Exception as e:
+                                    self.check_log(f"❌ Ошибка доступа к папке устройства: {str(e)}", "ERROR", 2)
+                                    attack_errors += 1
+                    else:
+                        try:
+                            folders = [f for f in os.listdir(attack_folder) 
+                                      if os.path.isdir(os.path.join(attack_folder, f)) and f.isdigit()]
+                            actual_total = len(folders)
+                            
+                            status = "✅" if structure_info['expected_total'] == actual_total else "❌"
+                            self.check_log(f"{status} Всего: {actual_total}/{structure_info['expected_total']}", 
+                                         "SUCCESS" if structure_info['expected_total'] == actual_total else "ERROR", 2)
+                            
+                            if structure_info['expected_total'] > 0 and actual_total != structure_info['expected_total']:
+                                attack_errors += 1
+                            
+                            # ПРОВЕРКА СОДЕРЖИМОГО ПАПОК ДЛЯ ПЛОСКОЙ СТРУКТУРЫ
+                            self.check_log(f"🔍 Проверка содержимого папок:", "SECTION", 2)
+                            flat_content_errors = 0
+                            for folder in folders:
+                                folder_path = os.path.join(attack_folder, folder)
+                                self.check_log(f"📂 Папка {folder}:", "DETAIL", 3)
+                                if not self.check_folder_content(folder_path, log_errors=True, indent=4):
+                                    flat_content_errors += 1
+                                    content_errors += 1
+                            
+                            if flat_content_errors == 0:
+                                self.check_log(f"✅ Содержимое папок проверено успешно", "SUCCESS", 2)
+                            else:
+                                self.check_log(f"❌ Ошибок в содержимом: {flat_content_errors}", "ERROR", 2)
+                        except Exception as e:
+                            self.check_log(f"❌ Ошибка доступа к папке атаки: {str(e)}", "ERROR", 2)
+                            attack_errors += 1
+                    
+                    total_content_errors += content_errors
+                    
+                    if attack_errors == 0 and content_errors == 0:
+                        self.check_log(f"✅ Атака проверена успешно", "SUCCESS", 1)
+                    else:
+                        error_msg = f"❌ Атака содержит ошибок: структура={attack_errors}, содержимое={content_errors}"
+                        self.check_log(error_msg, "ERROR", 1)
+                        total_errors += (attack_errors + content_errors)
+                    
+                    self.check_log("", "INFO")
+                
+                except Exception as e:
+                    self.check_log(f"❌ Ошибка при проверке атаки: {str(e)}", "ERROR", 1)
+                    total_errors += 1
+            
+            self.check_log("=" * 60, "HEADER")
+            if total_errors == 0:
+                self.check_log(f"✅ ПРОВЕРКА ID ЗАВЕРШЕНА УСПЕШНО!", "SUCCESS")
+                self.check_log(f"📊 Проверено атак: {total_attacks}", "SUCCESS")
+                self.check_log(f"🔍 Ошибок содержимого: {total_content_errors}", "SUCCESS")
+                messagebox.showinfo("Проверка завершена", "ID проверен успешно! Ошибок не обнаружено.")
+            else:
+                self.check_log(f"❌ ПРОВЕРКА ID ЗАВЕРШЕНА С ОШИБКАМИ", "ERROR")
+                self.check_log(f"📊 Обнаружено ошибок: {total_errors}", "ERROR")
+                self.check_log(f"🔍 Ошибок содержимого: {total_content_errors}", "ERROR")
+                messagebox.showwarning("Проверка завершена", 
+                                     f"Обнаружены ошибки: {total_errors}\n"
+                                     f"Ошибок содержимого: {total_content_errors}")
+                
+        except Exception as e:
+            self.check_log(f"❌ Ошибка при проверке ID: {str(e)}", "ERROR")
+            messagebox.showerror("Ошибка", f"Произошла ошибка при проверке: {str(e)}")
+    
+    def check_global(self):
+        """Общая проверка проекта с проверкой содержимого папок"""
+        project_folder = self.global_check_entry.get()
+        
+        if not project_folder:
+            messagebox.showerror("Ошибка", "Выберите общую папку проекта")
+            return
+        
+        if not os.path.exists(project_folder):
+            messagebox.showerror("Ошибка", "Общая папка проекта не существует")
+            return
+        
+        self.check_log("=" * 60, "HEADER")
+        self.check_log(f"🌐 ОБЩАЯ ПРОВЕРКА ПРОЕКТА", "HEADER")
+        self.check_log(f"📁 Папка: {project_folder}", "HEADER")
+        self.check_log("=" * 60, "HEADER")
+        
+        try:
+            id_folders = []
+            for item in os.listdir(project_folder):
+                item_path = os.path.join(project_folder, item)
+                if os.path.isdir(item_path):
+                    try:
+                        has_attacks = any(subitem in self.attack_ranges for subitem in os.listdir(item_path))
+                        if has_attacks:
+                            id_folders.append(item_path)
+                    except:
+                        continue
+            
+            if not id_folders:
+                self.check_log(f"❌ ОШИБКА: В проекте не найдено папок ID", "ERROR")
+                return
+            
+            total_errors = 0
+            total_ids = len(id_folders)
+            total_content_errors = 0
+            
+            self.check_log(f"📊 Найдено ID: {total_ids}", "INFO")
+            self.check_log("", "INFO")
+            
+            for id_folder in id_folders:
+                self.check_log(f"🆔 ID: {os.path.basename(id_folder)}", "SECTION")
+                
+                try:
+                    attack_folders = []
+                    unknown_folders = []
+                    
+                    for item in os.listdir(id_folder):
+                        item_path = os.path.join(id_folder, item)
+                        if os.path.isdir(item_path):
+                            if item in self.attack_ranges:
+                                attack_folders.append((item, item_path))
+                            else:
+                                unknown_folders.append(item)
+                    
+                    if not attack_folders:
+                        self.check_log(f"❌ В папке ID не найдено папок атак", "ERROR", 1)
+                        total_errors += 1
+                        continue
+                    
+                    self.check_log(f"📊 Количество атак: {len(attack_folders)}", "INFO", 1)
+                    
+                    if unknown_folders:
+                        self.check_log(f"⚠️ Неизвестные папки: {', '.join(unknown_folders)}", "WARNING", 1)
+                    
+                    id_errors = 0
+                    id_content_errors = 0
+                    
+                    for attack_name, attack_folder in attack_folders:
+                        self.check_log(f"🎯 Атака: {attack_name}", "INFO", 2)
+                        
+                        try:
+                            structure_info = self.check_attack_structure(attack_folder, attack_name)
+                            
+                            actual_total = 0
+                            attack_errors = 0
+                            attack_content_errors = 0
+                            
+                            if structure_info['has_kozen10'] or structure_info['has_kozen12']:
+                                for device in ["kozen 10", "kozen 12"]:
+                                    if structure_info[f'has_{device.replace(" ", "")}']:
+                                        device_folder = os.path.join(attack_folder, device)
+                                        
+                                        if not os.path.exists(device_folder):
+                                            self.check_log(f"⚠️ Папка {device} не существует", "WARNING", 3)
+                                            continue
+                                        
+                                        expected_count = 0
+                                        if attack_name in self.attack_ranges and device in self.attack_ranges[attack_name]:
+                                            start, end = self.attack_ranges[attack_name][device]
+                                            expected_count = end - start + 1
+                                        
+                                        try:
+                                            folders = [f for f in os.listdir(device_folder) 
+                                                      if os.path.isdir(os.path.join(device_folder, f)) and f.isdigit()]
+                                            
+                                            actual_count = len(folders)
+                                            actual_total += actual_count
+                                            
+                                            status = "✅" if expected_count == actual_count else "❌"
+                                            self.check_log(f"{status} {device}: {actual_count}/{expected_count}", 
+                                                         "SUCCESS" if expected_count == actual_count else "ERROR", 3)
+                                            
+                                            if expected_count > 0 and actual_count != expected_count:
+                                                attack_errors += 1
+                                            
+                                            # ПРОВЕРКА СОДЕРЖИМОГО
+                                            self.check_log(f"🔍 Проверка содержимого {device}:", "SECTION", 3)
+                                            device_content_errors = 0
+                                            for folder in folders:
+                                                folder_path = os.path.join(device_folder, folder)
+                                                self.check_log(f"📂 Папка {folder}:", "DETAIL", 4)
+                                                if not self.check_folder_content(folder_path, log_errors=True, indent=5):
+                                                    device_content_errors += 1
+                                                    attack_content_errors += 1
+                                            
+                                            if device_content_errors == 0:
+                                                self.check_log(f"✅ Содержимое {device} OK", "SUCCESS", 3)
+                                            else:
+                                                self.check_log(f"❌ Ошибок в {device}: {device_content_errors}", "ERROR", 3)
+                                        except Exception as e:
+                                            self.check_log(f"❌ Ошибка доступа к папке устройства: {str(e)}", "ERROR", 3)
+                                            attack_errors += 1
+                            else:
+                                try:
+                                    folders = [f for f in os.listdir(attack_folder) 
+                                              if os.path.isdir(os.path.join(attack_folder, f)) and f.isdigit()]
+                                    actual_total = len(folders)
+                                    
+                                    status = "✅" if structure_info['expected_total'] == actual_total else "❌"
+                                    self.check_log(f"{status} Всего: {actual_total}/{structure_info['expected_total']}", 
+                                                 "SUCCESS" if structure_info['expected_total'] == actual_total else "ERROR", 3)
+                                    
+                                    if structure_info['expected_total'] > 0 and actual_total != structure_info['expected_total']:
+                                        attack_errors += 1
+                                    
+                                    # ПРОВЕРКА СОДЕРЖИМОГО
+                                    self.check_log(f"🔍 Проверка содержимого:", "SECTION", 3)
+                                    flat_content_errors = 0
+                                    for folder in folders:
+                                        folder_path = os.path.join(attack_folder, folder)
+                                        self.check_log(f"📂 Папка {folder}:", "DETAIL", 4)
+                                        if not self.check_folder_content(folder_path, log_errors=True, indent=5):
+                                            flat_content_errors += 1
+                                            attack_content_errors += 1
+                                    
+                                    if flat_content_errors == 0:
+                                        self.check_log(f"✅ Содержимое папок OK", "SUCCESS", 3)
+                                    else:
+                                        self.check_log(f"❌ Ошибок в содержимом: {flat_content_errors}", "ERROR", 3)
+                                except Exception as e:
+                                    self.check_log(f"❌ Ошибка доступа к папке атаки: {str(e)}", "ERROR", 3)
+                                    attack_errors += 1
+                            
+                            id_content_errors += attack_content_errors
+                            total_content_errors += attack_content_errors
+                            
+                            if attack_errors == 0 and attack_content_errors == 0:
+                                self.check_log(f"✅ Атака проверена успешно", "SUCCESS", 3)
+                            else:
+                                error_msg = f"❌ Ошибки: структура={attack_errors}, содержимое={attack_content_errors}"
+                                self.check_log(error_msg, "ERROR", 3)
+                                id_errors += (attack_errors + attack_content_errors)
+                        
+                        except Exception as e:
+                            self.check_log(f"❌ Ошибка при проверке атаки: {str(e)}", "ERROR", 3)
+                            id_errors += 1
+                    
+                    total_errors += id_errors
+                    
+                    if id_errors == 0:
+                        self.check_log(f"✅ ID проверен успешно", "SUCCESS", 1)
+                    else:
+                        self.check_log(f"❌ ID содержит ошибок: {id_errors}", "ERROR", 1)
+                
+                except Exception as e:
+                    self.check_log(f"❌ Ошибка при проверке ID: {str(e)}", "ERROR", 1)
+                    total_errors += 1
+                
+                self.check_log("", "INFO")
+            
+            self.check_log("=" * 60, "HEADER")
+            if total_errors == 0:
+                self.check_log(f"✅ ОБЩАЯ ПРОВЕРКА ЗАВЕРШЕНА УСПЕШНО!", "SUCCESS")
+                self.check_log(f"📊 Проверено ID: {total_ids}", "SUCCESS")
+                self.check_log(f"🔍 Ошибок содержимого: {total_content_errors}", "SUCCESS")
+                messagebox.showinfo("Проверка завершена", "Проект проверен успешно! Ошибок не обнаружено.")
+            else:
+                self.check_log(f"❌ ОБЩАЯ ПРОВЕРКА ЗАВЕРШЕНА С ОШИБКАМИ", "ERROR")
+                self.check_log(f"📊 Обнаружено ошибок: {total_errors}", "ERROR")
+                self.check_log(f"📊 Проверено ID: {total_ids}", "INFO")
+                self.check_log(f"🔍 Ошибок содержимого: {total_content_errors}", "ERROR")
+                messagebox.showwarning("Проверка завершена", 
+                                     f"Обнаружены ошибки: {total_errors}\n"
+                                     f"Ошибок содержимого: {total_content_errors}\n"
+                                     f"Проверено ID: {total_ids}")
+                
+        except Exception as e:
+            self.check_log(f"❌ Ошибка при общей проверке проекта: {str(e)}", "ERROR")
+            messagebox.showerror("Ошибка", f"Произошла ошибка при проверке: {str(e)}")
     
     def load_attack_data(self, event=None):
         """Загрузка данных выбранной атаки для редактирования"""
@@ -722,7 +1634,6 @@ class ModernFolderRenamer:
             return
         
         try:
-            # Парсим диапазоны
             kozen10_str = self.kozen10_entry.get().strip()
             kozen12_str = self.kozen12_entry.get().strip()
             
@@ -743,7 +1654,6 @@ class ModernFolderRenamer:
             self.attack_ranges[attack] = new_ranges
             self.save_attack_config()
             
-            # Обновляем комбобоксы
             attacks = list(self.attack_ranges.keys())
             self.attack_combo['values'] = attacks
             self.edit_attack_combo['values'] = attacks
@@ -756,16 +1666,15 @@ class ModernFolderRenamer:
     
     def new_attack(self):
         """Создание новой атаки"""
-        attack = tk.simpledialog.askstring("Новая атака", "Введите номер новой атаки:")
+        attack = tk.simpledialog.askstring("Новая атака", "Введите название новой атаки:")
         if attack:
             if attack in self.attack_ranges:
-                messagebox.showerror("Ошибка", "Атака с таким номером уже существует")
+                messagebox.showerror("Ошибка", "Атака с таким названием уже существует")
                 return
             
             self.attack_ranges[attack] = {}
             self.save_attack_config()
             
-            # Обновляем комбобоксы
             attacks = list(self.attack_ranges.keys())
             self.attack_combo['values'] = attacks
             self.edit_attack_combo['values'] = attacks
@@ -790,26 +1699,21 @@ class ModernFolderRenamer:
                 messagebox.showerror("Ошибка", "Атака с таким названием уже существует")
                 return
             
-            # Сохраняем данные старой атаки
             attack_data = self.attack_ranges[old_attack]
-            
-            # Удаляем старую атаку и создаем новую
             del self.attack_ranges[old_attack]
             self.attack_ranges[new_attack] = attack_data
             self.save_attack_config()
             
-            # Обновляем комбобоксы
             attacks = list(self.attack_ranges.keys())
             self.attack_combo['values'] = attacks
             self.edit_attack_combo['values'] = attacks
             
-            # Устанавливаем новое значение
             self.attack_var.set(new_attack)
             self.edit_attack_var.set(new_attack)
             self.load_attack_data()
             
-            self.log(f"Атака переименована: {old_attack} -> {new_attack}", "SUCCESS")
-            messagebox.showinfo("Успех", f"Атака успешно переименована: {old_attack} -> {new_attack}")
+            self.log(f"Атака переименована: {old_attack} → {new_attack}", "SUCCESS")
+            messagebox.showinfo("Успех", f"Атака успешно переименована: {old_attack} → {new_attack}")
     
     def delete_attack(self):
         """Удаление атаки"""
@@ -822,7 +1726,6 @@ class ModernFolderRenamer:
             del self.attack_ranges[attack]
             self.save_attack_config()
             
-            # Обновляем комбобоксы
             attacks = list(self.attack_ranges.keys())
             self.attack_combo['values'] = attacks
             self.edit_attack_combo['values'] = attacks
