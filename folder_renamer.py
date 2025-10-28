@@ -11,9 +11,9 @@ class ModernFolderRenamer:
     def __init__(self, root):
         self.root = root
         self.root.title("Folder Manager - Kozen")
-        self.root.geometry("1400x900")
+        self.root.geometry("1200x750")
         self.root.configure(bg='#f8f9fa')
-        self.root.minsize(1200, 700)
+        self.root.minsize(1000, 600)
         
         # Центрирование окна
         self.center_window()
@@ -57,14 +57,14 @@ class ModernFolderRenamer:
         # Конфигурация стилей
         self.style.configure('TFrame', background=self.colors['background'])
         self.style.configure('TLabel', background=self.colors['background'], foreground=self.colors['text_primary'])
-        self.style.configure('TButton', font=('Segoe UI', 10), borderwidth=0, focuscolor='none')
+        self.style.configure('TButton', font=('Segoe UI', 9), borderwidth=0, focuscolor='none')
         self.style.configure('Rounded.TButton', 
                            background=self.colors['primary'],
                            foreground='white',
                            borderwidth=0,
                            focuscolor='none',
                            relief='flat',
-                           padding=(20, 10))
+                           padding=(15, 8))
         self.style.map('Rounded.TButton',
                       background=[('active', self.colors['primary_light']),
                                 ('pressed', self.colors['primary'])])
@@ -144,19 +144,19 @@ class ModernFolderRenamer:
     def setup_ui(self):
         # Заголовок
         header_frame = self.create_rounded_frame(self.root)
-        header_frame.pack(fill="x", padx=20, pady=15)
+        header_frame.pack(fill="x", padx=15, pady=10)
         
         title_label = tk.Label(header_frame, 
                               text="📁 Folder Manager - Kozen", 
-                              font=("Segoe UI", 20, "bold"), 
+                              font=("Segoe UI", 18, "bold"),
                               bg=self.colors['surface'], 
                               fg=self.colors['text_primary'],
-                              pady=15)
+                              pady=12)
         title_label.pack()
         
         # Основной контейнер с вкладками
         notebook = ttk.Notebook(self.root)
-        notebook.pack(fill="both", expand=True, padx=20, pady=10)
+        notebook.pack(fill="both", expand=True, padx=15, pady=8)
         
         # Вкладка основного функционала
         main_tab = self.create_rounded_frame(notebook)
@@ -177,7 +177,7 @@ class ModernFolderRenamer:
     def setup_main_tab(self, parent):
         # Создаем разделяемый фрейм для левой (настройки) и правой (логи) части
         main_paned = ttk.PanedWindow(parent, orient=tk.HORIZONTAL)
-        main_paned.pack(fill="both", expand=True, padx=15, pady=15)
+        main_paned.pack(fill="both", expand=True, padx=10, pady=10)
         
         # Левая часть - настройки
         left_frame = self.create_rounded_frame(main_paned)
@@ -190,34 +190,34 @@ class ModernFolderRenamer:
         # Настройка левой части - элементы управления
         # Фрейм для выбора папок
         folder_frame = self.create_rounded_frame(left_frame)
-        folder_frame.pack(fill="x", padx=15, pady=10)
+        folder_frame.pack(fill="x", padx=10, pady=8)
         
         # Исходная папка
         tk.Label(folder_frame, text="📂 Исходная папка:", 
-                font=("Segoe UI", 10, "bold"),
-                bg=self.colors['surface']).grid(row=0, column=0, sticky="w", pady=(15, 5), padx=15)
+                font=("Segoe UI", 9, "bold"),
+                bg=self.colors['surface']).grid(row=0, column=0, sticky="w", pady=(12, 4), padx=12)
         
         input_frame1 = tk.Frame(folder_frame, bg=self.colors['surface'])
-        input_frame1.grid(row=1, column=0, sticky="ew", padx=15, pady=(0, 10))
+        input_frame1.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 8))
         input_frame1.columnconfigure(0, weight=1)
         
-        self.source_entry = ttk.Entry(input_frame1, font=("Segoe UI", 10))
-        self.source_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        self.source_entry = ttk.Entry(input_frame1, font=("Segoe UI", 9))
+        self.source_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
         
         ttk.Button(input_frame1, text="Обзор", 
                   command=self.browse_source, style="Secondary.TButton").grid(row=0, column=1)
         
         # Папка назначения
         tk.Label(folder_frame, text="📁 Папка назначения:", 
-                font=("Segoe UI", 10, "bold"),
-                bg=self.colors['surface']).grid(row=2, column=0, sticky="w", pady=(10, 5), padx=15)
+                font=("Segoe UI", 9, "bold"),
+                bg=self.colors['surface']).grid(row=2, column=0, sticky="w", pady=(8, 4), padx=12)
         
         input_frame2 = tk.Frame(folder_frame, bg=self.colors['surface'])
-        input_frame2.grid(row=3, column=0, sticky="ew", padx=15, pady=(0, 15))
+        input_frame2.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 12))
         input_frame2.columnconfigure(0, weight=1)
         
-        self.dest_entry = ttk.Entry(input_frame2, font=("Segoe UI", 10))
-        self.dest_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        self.dest_entry = ttk.Entry(input_frame2, font=("Segoe UI", 9))
+        self.dest_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
         
         ttk.Button(input_frame2, text="Обзор", 
                   command=self.browse_dest, style="Secondary.TButton").grid(row=0, column=1)
@@ -226,113 +226,118 @@ class ModernFolderRenamer:
         
         # Фрейм для настроек
         settings_frame = self.create_rounded_frame(left_frame)
-        settings_frame.pack(fill="x", padx=15, pady=10)
+        settings_frame.pack(fill="x", padx=10, pady=8)
         
         # Устройство
         tk.Label(settings_frame, text="📱 Устройство:", 
-                font=("Segoe UI", 10, "bold"),
-                bg=self.colors['surface']).grid(row=0, column=0, sticky="w", pady=(15, 10), padx=15)
+                font=("Segoe UI", 9, "bold"),
+                bg=self.colors['surface']).grid(row=0, column=0, sticky="w", pady=(12, 8), padx=12)
         
         self.device_var = tk.StringVar(value="все")
         device_frame = tk.Frame(settings_frame, bg=self.colors['surface'])
-        device_frame.grid(row=0, column=1, sticky="w", pady=(15, 10), padx=15)
+        device_frame.grid(row=0, column=1, sticky="w", pady=(12, 8), padx=12)
         
         ttk.Radiobutton(device_frame, text="Все", variable=self.device_var, 
-                       value="все", command=self.update_range_info).pack(side="left", padx=(0, 20))
+                       value="все", command=self.update_range_info).pack(side="left", padx=(0, 15))
         ttk.Radiobutton(device_frame, text="Kozen 10", variable=self.device_var, 
-                       value="kozen 10", command=self.update_range_info).pack(side="left", padx=(0, 20))
+                       value="kozen 10", command=self.update_range_info).pack(side="left", padx=(0, 15))
         ttk.Radiobutton(device_frame, text="Kozen 12", variable=self.device_var, 
                        value="kozen 12", command=self.update_range_info).pack(side="left")
         
         # Атака
         tk.Label(settings_frame, text="🎯 Тип атаки:", 
-                font=("Segoe UI", 10, "bold"),
-                bg=self.colors['surface']).grid(row=1, column=0, sticky="w", pady=10, padx=15)
+                font=("Segoe UI", 9, "bold"),
+                bg=self.colors['surface']).grid(row=1, column=0, sticky="w", pady=8, padx=12)
         
         self.attack_var = tk.StringVar(value="02 2D Mask")
         self.attack_combo = ttk.Combobox(settings_frame, textvariable=self.attack_var, 
                                        values=list(self.attack_ranges.keys()), 
-                                       state="readonly", font=("Segoe UI", 10))
-        self.attack_combo.grid(row=1, column=1, sticky="w", pady=10, padx=15)
+                                       state="readonly", font=("Segoe UI", 9))
+        self.attack_combo.grid(row=1, column=1, sticky="w", pady=8, padx=12)
         self.attack_combo.bind("<<ComboboxSelected>>", self.update_range_info)
         
         # Чекбокс проверки содержимого
         self.check_content_var = tk.BooleanVar(value=False)
         check_frame = tk.Frame(settings_frame, bg=self.colors['surface'])
-        check_frame.grid(row=2, column=0, columnspan=2, sticky="w", pady=10, padx=15)
+        check_frame.grid(row=2, column=0, columnspan=2, sticky="w", pady=8, padx=12)
         
         ttk.Checkbutton(check_frame, text="🔍 Проверять содержимое папок (3 папки + BestShot файл)", 
-                       variable=self.check_content_var).pack(side="left")
+                       variable=self.check_content_var, style="TCheckbutton").pack(side="left")
         
         # Информация о диапазоне
-        self.range_info = tk.Label(settings_frame, text="", font=("Segoe UI", 10), 
+        self.range_info = tk.Label(settings_frame, text="", font=("Segoe UI", 9),
                                   bg=self.colors['surface'], fg=self.colors['primary'],
-                                  pady=10)
-        self.range_info.grid(row=3, column=0, columnspan=2, sticky="w", padx=15)
+                                  pady=8)
+        self.range_info.grid(row=3, column=0, columnspan=2, sticky="w", padx=12)
         
         settings_frame.columnconfigure(1, weight=1)
         
         # Фрейм для замены папок
         replace_frame = self.create_rounded_frame(left_frame)
-        replace_frame.pack(fill="x", padx=15, pady=10)
+        replace_frame.pack(fill="x", padx=10, pady=8)
         
         tk.Label(replace_frame, text="🔧 Замена отдельных папок", 
-                font=("Segoe UI", 10, "bold"),
-                bg=self.colors['surface']).pack(anchor="w", pady=(15, 10), padx=15)
+                font=("Segoe UI", 9, "bold"),
+                bg=self.colors['surface']).pack(anchor="w", pady=(12, 8), padx=12)
         
         tk.Label(replace_frame, text="Номера папок для замены:", 
-                font=("Segoe UI", 10),
-                bg=self.colors['surface']).pack(anchor="w", padx=15)
+                font=("Segoe UI", 9),
+                bg=self.colors['surface']).pack(anchor="w", padx=12)
         
         input_frame = tk.Frame(replace_frame, bg=self.colors['surface'])
-        input_frame.pack(fill="x", padx=15, pady=10)
+        input_frame.pack(fill="x", padx=12, pady=8)
         input_frame.columnconfigure(0, weight=1)
         
-        self.replace_entry = ttk.Entry(input_frame, font=("Segoe UI", 10))
-        self.replace_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        self.replace_entry = ttk.Entry(input_frame, font=("Segoe UI", 9))
+        self.replace_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
         
         tk.Label(replace_frame, text="Пример: 522, 530-532,528", 
-                font=("Segoe UI", 9),
+                font=("Segoe UI", 8),
                 bg=self.colors['surface'],
-                fg=self.colors['text_secondary']).pack(anchor="w", padx=15, pady=(0, 15))
+                fg=self.colors['text_secondary']).pack(anchor="w", padx=12, pady=(0, 12))
         
-        # Кнопки выполнения - ГОРИЗОНТАЛЬНО
+        # Кнопки выполнения - ВЕРТИКАЛЬНО для маленьких экранов
         button_frame = tk.Frame(left_frame, bg=self.colors['background'])
-        button_frame.pack(fill="x", padx=15, pady=15)
+        button_frame.pack(fill="x", padx=10, pady=10)
         
-        # Создаем контейнер для кнопок с одинаковым размером
+        # Контейнер для кнопок - вертикальное расположение
         btn_container = tk.Frame(button_frame, bg=self.colors['background'])
-        btn_container.pack()
+        btn_container.pack(fill="x")
         
-        # Кнопки одинакового размера
+        # Кнопки одинакового размера, расположенные вертикально
         self.rename_btn = ttk.Button(btn_container, text="🚀 Выполнить переименование", 
                                    command=self.execute_renaming, 
-                                   style="Rounded.TButton",
-                                   width=25)
-        self.rename_btn.pack(side="left", padx=5)
+                                   style="Rounded.TButton")
+        self.rename_btn.pack(fill="x", pady=2)
         
         self.replace_btn = ttk.Button(btn_container, text="🔄 Выполнить замену", 
                                     command=self.execute_replacement, 
-                                    style="Warning.TButton",
-                                    width=25)
-        self.replace_btn.pack(side="left", padx=5)
+                                    style="Warning.TButton")
+        self.replace_btn.pack(fill="x", pady=2)
         
         self.update_range_info()
         
         # Настройка правой части - логи
-        tk.Label(right_frame, text="📋 Основные логи выполнения", 
-                font=("Segoe UI", 12, "bold"),
-                bg=self.colors['surface']).pack(anchor="w", pady=(15, 10), padx=15)
+        log_header_frame = tk.Frame(right_frame, bg=self.colors['surface'])
+        log_header_frame.pack(fill="x", padx=12, pady=(12, 8))
+        
+        tk.Label(log_header_frame, text="📋 Основные логи выполнения", 
+                font=("Segoe UI", 11, "bold"),
+                bg=self.colors['surface']).pack(side="left")
+        
+        # Кнопка очистки логов в заголовке
+        ttk.Button(log_header_frame, text="🧹 Очистить логи", 
+                  command=self.clear_logs, style="Secondary.TButton").pack(side="right")
         
         # Фрейм для логов с прокруткой
         log_container = tk.Frame(right_frame, bg=self.colors['surface'])
-        log_container.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        log_container.pack(fill="both", expand=True, padx=12, pady=(0, 12))
         
-        self.log_text = scrolledtext.ScrolledText(log_container, height=25, font=("Consolas", 9),
+        self.log_text = scrolledtext.ScrolledText(log_container, height=20, font=("Consolas", 8),
                                                  bg='#1e293b', fg='#e2e8f0', 
                                                  insertbackground='white',
                                                  relief='flat',
-                                                 padx=10, pady=10)
+                                                 padx=8, pady=8)
         self.log_text.pack(fill="both", expand=True)
         
         # Настройка тегов для цветного текста
@@ -341,19 +346,12 @@ class ModernFolderRenamer:
         self.log_text.tag_config("ERROR", foreground="#ef4444")
         self.log_text.tag_config("INFO", foreground="#e2e8f0")
         self.log_text.tag_config("CRITICAL", foreground="#ff0000", background="#330000")
-        self.log_text.tag_config("HEADER", foreground="#93c5fd", font=("Consolas", 9, "bold"))
+        self.log_text.tag_config("HEADER", foreground="#93c5fd", font=("Consolas", 8, "bold"))
         self.log_text.tag_config("DETAIL", foreground="#94a3b8")
-        
-        # Кнопка очистки логов
-        btn_frame = tk.Frame(right_frame, bg=self.colors['surface'])
-        btn_frame.pack(fill="x", padx=15, pady=(0, 15))
-        
-        ttk.Button(btn_frame, text="🧹 Очистить логи", 
-                  command=self.clear_logs, style="Secondary.TButton").pack(side="right")
     
     def setup_check_tab(self, parent):
         paned_window = ttk.PanedWindow(parent, orient=tk.HORIZONTAL)
-        paned_window.pack(fill="both", expand=True, padx=15, pady=15)
+        paned_window.pack(fill="both", expand=True, padx=10, pady=10)
         
         # Левая часть - элементы управления
         left_frame = self.create_rounded_frame(paned_window)
@@ -365,21 +363,21 @@ class ModernFolderRenamer:
         
         # Настройка левой части
         attack_check_frame = self.create_rounded_frame(left_frame)
-        attack_check_frame.pack(fill="x", padx=15, pady=10)
+        attack_check_frame.pack(fill="x", padx=10, pady=8)
         
         tk.Label(attack_check_frame, text="🎯 Проверка атаки", 
-                font=("Segoe UI", 12, "bold"),
-                bg=self.colors['surface']).pack(anchor="w", pady=(15, 10), padx=15)
+                font=("Segoe UI", 11, "bold"),
+                bg=self.colors['surface']).pack(anchor="w", pady=(12, 8), padx=12)
         
         input_frame1 = tk.Frame(attack_check_frame, bg=self.colors['surface'])
-        input_frame1.pack(fill="x", padx=15, pady=10)
+        input_frame1.pack(fill="x", padx=12, pady=8)
         
         tk.Label(input_frame1, text="Папка атаки:", 
-                font=("Segoe UI", 10),
+                font=("Segoe UI", 9),
                 bg=self.colors['surface']).grid(row=0, column=0, sticky="w")
         
-        self.attack_check_entry = ttk.Entry(input_frame1, font=("Segoe UI", 10))
-        self.attack_check_entry.grid(row=0, column=1, sticky="ew", padx=10)
+        self.attack_check_entry = ttk.Entry(input_frame1, font=("Segoe UI", 9))
+        self.attack_check_entry.grid(row=0, column=1, sticky="ew", padx=8)
         
         ttk.Button(input_frame1, text="Обзор", 
                   command=lambda: self.browse_folder(self.attack_check_entry),
@@ -389,25 +387,25 @@ class ModernFolderRenamer:
         
         ttk.Button(attack_check_frame, text="🔍 Проверить атаку", 
                   command=self.check_attack, 
-                  style="Rounded.TButton").pack(pady=10)
+                  style="Rounded.TButton").pack(pady=8)
         
         # Фрейм для проверки ID
         id_check_frame = self.create_rounded_frame(left_frame)
-        id_check_frame.pack(fill="x", padx=15, pady=10)
+        id_check_frame.pack(fill="x", padx=10, pady=8)
         
         tk.Label(id_check_frame, text="🆔 Проверка ID", 
-                font=("Segoe UI", 12, "bold"),
-                bg=self.colors['surface']).pack(anchor="w", pady=(15, 10), padx=15)
+                font=("Segoe UI", 11, "bold"),
+                bg=self.colors['surface']).pack(anchor="w", pady=(12, 8), padx=12)
         
         input_frame2 = tk.Frame(id_check_frame, bg=self.colors['surface'])
-        input_frame2.pack(fill="x", padx=15, pady=10)
+        input_frame2.pack(fill="x", padx=12, pady=8)
         
         tk.Label(input_frame2, text="Папка ID:", 
-                font=("Segoe UI", 10),
+                font=("Segoe UI", 9),
                 bg=self.colors['surface']).grid(row=0, column=0, sticky="w")
         
-        self.id_check_entry = ttk.Entry(input_frame2, font=("Segoe UI", 10))
-        self.id_check_entry.grid(row=0, column=1, sticky="ew", padx=10)
+        self.id_check_entry = ttk.Entry(input_frame2, font=("Segoe UI", 9))
+        self.id_check_entry.grid(row=0, column=1, sticky="ew", padx=8)
         
         ttk.Button(input_frame2, text="Обзор", 
                   command=lambda: self.browse_folder(self.id_check_entry),
@@ -417,25 +415,25 @@ class ModernFolderRenamer:
         
         ttk.Button(id_check_frame, text="🔍 Проверить ID", 
                   command=self.check_id, 
-                  style="Rounded.TButton").pack(pady=10)
+                  style="Rounded.TButton").pack(pady=8)
         
         # Фрейм для общей проверки
         global_check_frame = self.create_rounded_frame(left_frame)
-        global_check_frame.pack(fill="x", padx=15, pady=10)
+        global_check_frame.pack(fill="x", padx=10, pady=8)
         
         tk.Label(global_check_frame, text="🌐 Общая проверка", 
-                font=("Segoe UI", 12, "bold"),
-                bg=self.colors['surface']).pack(anchor="w", pady=(15, 10), padx=15)
+                font=("Segoe UI", 11, "bold"),
+                bg=self.colors['surface']).pack(anchor="w", pady=(12, 8), padx=12)
         
         input_frame3 = tk.Frame(global_check_frame, bg=self.colors['surface'])
-        input_frame3.pack(fill="x", padx=15, pady=10)
+        input_frame3.pack(fill="x", padx=12, pady=8)
         
         tk.Label(input_frame3, text="Общая папка проекта:", 
-                font=("Segoe UI", 10),
+                font=("Segoe UI", 9),
                 bg=self.colors['surface']).grid(row=0, column=0, sticky="w")
         
-        self.global_check_entry = ttk.Entry(input_frame3, font=("Segoe UI", 10))
-        self.global_check_entry.grid(row=0, column=1, sticky="ew", padx=10)
+        self.global_check_entry = ttk.Entry(input_frame3, font=("Segoe UI", 9))
+        self.global_check_entry.grid(row=0, column=1, sticky="ew", padx=8)
         
         ttk.Button(input_frame3, text="Обзор", 
                   command=lambda: self.browse_folder(self.global_check_entry),
@@ -445,22 +443,29 @@ class ModernFolderRenamer:
         
         ttk.Button(global_check_frame, text="🔍 Выполнить общую проверку", 
                   command=self.check_global, 
-                  style="Rounded.TButton").pack(pady=10)
+                  style="Rounded.TButton").pack(pady=8)
         
         # Настройка правой части - логов проверки
-        tk.Label(right_frame, text="📋 Логи проверки", 
-                font=("Segoe UI", 12, "bold"),
-                bg=self.colors['surface']).pack(anchor="w", pady=(15, 10), padx=15)
+        check_log_header = tk.Frame(right_frame, bg=self.colors['surface'])
+        check_log_header.pack(fill="x", padx=12, pady=(12, 8))
+        
+        tk.Label(check_log_header, text="📋 Логи проверки", 
+                font=("Segoe UI", 11, "bold"),
+                bg=self.colors['surface']).pack(side="left")
+        
+        # Кнопка очистки логов в заголовке
+        ttk.Button(check_log_header, text="🧹 Очистить логи", 
+                  command=self.clear_check_logs, style="Secondary.TButton").pack(side="right")
         
         # Контейнер для логов проверки
         check_log_container = tk.Frame(right_frame, bg=self.colors['surface'])
-        check_log_container.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        check_log_container.pack(fill="both", expand=True, padx=12, pady=(0, 12))
         
-        self.check_log_text = scrolledtext.ScrolledText(check_log_container, height=25, font=("Consolas", 9),
+        self.check_log_text = scrolledtext.ScrolledText(check_log_container, height=20, font=("Consolas", 8),
                                                        bg='#1e293b', fg='#e2e8f0', 
                                                        insertbackground='white',
                                                        relief='flat',
-                                                       padx=10, pady=10)
+                                                       padx=8, pady=8)
         self.check_log_text.pack(fill="both", expand=True)
         
         # Настройка тегов для цветного текста
@@ -469,71 +474,72 @@ class ModernFolderRenamer:
         self.check_log_text.tag_config("ERROR", foreground="#ef4444")
         self.check_log_text.tag_config("INFO", foreground="#e2e8f0")
         self.check_log_text.tag_config("CRITICAL", foreground="#ff0000", background="#330000")
-        self.check_log_text.tag_config("HEADER", foreground="#93c5fd", font=("Consolas", 9, "bold"))
-        self.check_log_text.tag_config("SECTION", foreground="#cbd5e1", font=("Consolas", 9, "bold"))
+        self.check_log_text.tag_config("HEADER", foreground="#93c5fd", font=("Consolas", 8, "bold"))
+        self.check_log_text.tag_config("SECTION", foreground="#cbd5e1", font=("Consolas", 8, "bold"))
         self.check_log_text.tag_config("DETAIL", foreground="#94a3b8")
-        
-        # Кнопка очистки логов
-        btn_frame = tk.Frame(right_frame, bg=self.colors['surface'])
-        btn_frame.pack(fill="x", padx=15, pady=(0, 15))
-        
-        ttk.Button(btn_frame, text="🧹 Очистить логи", 
-                  command=self.clear_check_logs, style="Secondary.TButton").pack(side="right")
     
     def setup_settings_tab(self, parent):
         edit_frame = self.create_rounded_frame(parent)
-        edit_frame.pack(fill="both", expand=True, padx=15, pady=15)
+        edit_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
         tk.Label(edit_frame, text="⚙️ Управление настройками атак", 
-                font=("Segoe UI", 12, "bold"),
-                bg=self.colors['surface']).pack(anchor="w", pady=(15, 20), padx=15)
+                font=("Segoe UI", 11, "bold"),
+                bg=self.colors['surface']).pack(anchor="w", pady=(12, 15), padx=12)
         
         input_frame1 = tk.Frame(edit_frame, bg=self.colors['surface'])
-        input_frame1.pack(fill="x", padx=15, pady=10)
+        input_frame1.pack(fill="x", padx=12, pady=8)
         
         tk.Label(input_frame1, text="Атака:", 
-                font=("Segoe UI", 10),
+                font=("Segoe UI", 9),
                 bg=self.colors['surface']).grid(row=0, column=0, sticky="w")
         
         self.edit_attack_var = tk.StringVar()
         self.edit_attack_combo = ttk.Combobox(input_frame1, textvariable=self.edit_attack_var, 
                                             values=list(self.attack_ranges.keys()), 
-                                            state="readonly", font=("Segoe UI", 10))
-        self.edit_attack_combo.grid(row=0, column=1, sticky="ew", padx=10)
+                                            state="readonly", font=("Segoe UI", 9))
+        self.edit_attack_combo.grid(row=0, column=1, sticky="ew", padx=8)
         self.edit_attack_combo.bind("<<ComboboxSelected>>", self.load_attack_data)
         
         input_frame1.columnconfigure(1, weight=1)
         
         input_frame2 = tk.Frame(edit_frame, bg=self.colors['surface'])
-        input_frame2.pack(fill="x", padx=15, pady=10)
+        input_frame2.pack(fill="x", padx=12, pady=8)
         
         tk.Label(input_frame2, text="Kozen 10 (начало-конец):", 
-                font=("Segoe UI", 10),
-                bg=self.colors['surface']).grid(row=0, column=0, sticky="w", pady=5)
+                font=("Segoe UI", 9),
+                bg=self.colors['surface']).grid(row=0, column=0, sticky="w", pady=4)
         
-        self.kozen10_entry = ttk.Entry(input_frame2, font=("Segoe UI", 10))
-        self.kozen10_entry.grid(row=0, column=1, sticky="ew", padx=10, pady=5)
+        self.kozen10_entry = ttk.Entry(input_frame2, font=("Segoe UI", 9))
+        self.kozen10_entry.grid(row=0, column=1, sticky="ew", padx=8, pady=4)
         
         tk.Label(input_frame2, text="Kozen 12 (начало-конец):", 
-                font=("Segoe UI", 10),
-                bg=self.colors['surface']).grid(row=1, column=0, sticky="w", pady=5)
+                font=("Segoe UI", 9),
+                bg=self.colors['surface']).grid(row=1, column=0, sticky="w", pady=4)
         
-        self.kozen12_entry = ttk.Entry(input_frame2, font=("Segoe UI", 10))
-        self.kozen12_entry.grid(row=1, column=1, sticky="ew", padx=10, pady=5)
+        self.kozen12_entry = ttk.Entry(input_frame2, font=("Segoe UI", 9))
+        self.kozen12_entry.grid(row=1, column=1, sticky="ew", padx=8, pady=4)
         
         input_frame2.columnconfigure(1, weight=1)
         
         button_frame = tk.Frame(edit_frame, bg=self.colors['surface'])
-        button_frame.pack(fill="x", padx=15, pady=20)
+        button_frame.pack(fill="x", padx=12, pady=15)
         
-        ttk.Button(button_frame, text="💾 Сохранить", 
-                  command=self.save_attack_data, style="Success.TButton").pack(side="left", padx=5)
-        ttk.Button(button_frame, text="➕ Новая атака", 
-                  command=self.new_attack, style="Rounded.TButton").pack(side="left", padx=5)
-        ttk.Button(button_frame, text="✏️ Переименовать", 
-                  command=self.rename_attack, style="Secondary.TButton").pack(side="left", padx=5)
-        ttk.Button(button_frame, text="🗑️ Удалить атаку", 
-                  command=self.delete_attack, style="Secondary.TButton").pack(side="left", padx=5)
+        # Кнопки в две строки для маленьких экранов
+        top_button_frame = tk.Frame(button_frame, bg=self.colors['surface'])
+        top_button_frame.pack(fill="x", pady=2)
+        
+        ttk.Button(top_button_frame, text="💾 Сохранить", 
+                  command=self.save_attack_data, style="Success.TButton").pack(side="left", padx=2)
+        ttk.Button(top_button_frame, text="➕ Новая атака", 
+                  command=self.new_attack, style="Rounded.TButton").pack(side="left", padx=2)
+        
+        bottom_button_frame = tk.Frame(button_frame, bg=self.colors['surface'])
+        bottom_button_frame.pack(fill="x", pady=2)
+        
+        ttk.Button(bottom_button_frame, text="✏️ Переименовать", 
+                  command=self.rename_attack, style="Secondary.TButton").pack(side="left", padx=2)
+        ttk.Button(bottom_button_frame, text="🗑️ Удалить атаку", 
+                  command=self.delete_attack, style="Secondary.TButton").pack(side="left", padx=2)
     
     def browse_source(self):
         folder = filedialog.askdirectory()
@@ -580,6 +586,196 @@ class ModernFolderRenamer:
         else:
             self.range_info.config(text="❌ Выбранная комбинация недоступна")
     
+    def get_image_date(self, image_path):
+        """Получает дату съёмки из EXIF данных изображения (упрощенная версия без Pillow)"""
+        try:
+            # Вместо использования Pillow, используем дату изменения файла
+            # Это не идеально, но работает без внешних зависимостей
+            timestamp = os.path.getmtime(image_path)
+            return datetime.datetime.fromtimestamp(timestamp)
+        except Exception:
+            return None
+    
+    def find_image_files(self, folder_path):
+        """Находит все файлы изображений в папке"""
+        image_extensions = {'.jpg', '.jpeg', '.png', '.tiff', '.bmp', '.gif'}
+        image_files = []
+        
+        try:
+            for root, dirs, files in os.walk(folder_path):
+                for file in files:
+                    if any(file.lower().endswith(ext) for ext in image_extensions):
+                        image_files.append(os.path.join(root, file))
+        except Exception:
+            pass
+        
+        return image_files
+    
+    def get_folder_shooting_time(self, folder_path):
+        """Получает время съёмки для папки на основе изображений"""
+        # Сначала ищем BestShot
+        bestshot_files = []
+        try:
+            for file in os.listdir(folder_path):
+                if "bestshot" in file.lower() and any(file.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png']):
+                    bestshot_files.append(os.path.join(folder_path, file))
+        except Exception:
+            pass
+        
+        if bestshot_files:
+            date = self.get_image_date(bestshot_files[0])
+            if date:
+                return date
+        
+        # Если BestShot не найден, ищем в папках Captures и Focus
+        subfolders_to_check = ['Captures', 'Focus']
+        
+        for subfolder in subfolders_to_check:
+            subfolder_path = os.path.join(folder_path, subfolder)
+            if os.path.exists(subfolder_path):
+                image_files = self.find_image_files(subfolder_path)
+                if image_files:
+                    date = self.get_image_date(image_files[0])
+                    if date:
+                        return date
+        
+        # Если ничего не найдено, ищем любые изображения в папке
+        image_files = self.find_image_files(folder_path)
+        if image_files:
+            date = self.get_image_date(image_files[0])
+            if date:
+                return date
+        
+        return None
+    
+    def calculate_shooting_time(self, folders, source_folder):
+        """Вычисляет время съёмки на основе дат съёмки изображений"""
+        if not folders:
+            return "не удалось вычислить"
+        
+        try:
+            # Получаем времена съёмки всех папок
+            shooting_times = []
+            for folder in folders:
+                folder_path = os.path.join(source_folder, folder)
+                shooting_time = self.get_folder_shooting_time(folder_path)
+                if shooting_time:
+                    shooting_times.append((folder, shooting_time))
+            
+            if not shooting_times:
+                return "не удалось вычислить"
+            
+            # Сортируем по времени съёмки
+            shooting_times.sort(key=lambda x: x[1])
+            
+            # Группируем папки по дням
+            days_dict = {}
+            for folder_name, timestamp in shooting_times:
+                date_key = timestamp.date()
+                
+                if date_key not in days_dict:
+                    days_dict[date_key] = []
+                
+                days_dict[date_key].append((folder_name, timestamp))
+            
+            # Вычисляем общее время съёмки
+            total_seconds = 0
+            
+            for date_key, day_folders in days_dict.items():
+                if len(day_folders) > 1:
+                    # Время съёмки за день = разница между последней и первой папкой
+                    first_folder_time = day_folders[0][1].timestamp()
+                    last_folder_time = day_folders[-1][1].timestamp()
+                    day_duration = last_folder_time - first_folder_time
+                    total_seconds += day_duration
+                    
+                    # Логируем информацию о дне
+                    first_dt = day_folders[0][1]
+                    last_dt = day_folders[-1][1]
+                    self.log(f"📅 День {date_key}: {first_dt.strftime('%H:%M:%S')} - {last_dt.strftime('%H:%M:%S')} "
+                           f"({len(day_folders)} папок, время: {self.format_duration(day_duration)})", "DETAIL")
+                elif len(day_folders) == 1:
+                    # Если папка одна в день - время съёмки 0
+                    self.log(f"📅 День {date_key}: 1 папка, время съёмки: 00:00:00", "DETAIL")
+            
+            if total_seconds == 0:
+                return "00:00:00"
+            
+            return self.format_duration(total_seconds)
+            
+        except Exception as e:
+            self.log(f"Ошибка вычисления времени съёмки: {str(e)}", "WARNING")
+            return "не удалось вычислить"
+    
+    def format_duration(self, total_seconds):
+        """Форматирует длительность в формат HH:MM:SS"""
+        hours = int(total_seconds // 3600)
+        minutes = int((total_seconds % 3600) // 60)
+        seconds = int(total_seconds % 60)
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    
+    def parse_number_range(self, range_str):
+        """Парсинг диапазона номеров с сохранением порядка ввода"""
+        numbers = []
+        parts = [part.strip() for part in range_str.split(',')]
+        
+        for part in parts:
+            if not part:
+                continue
+                
+            if '-' in part:
+                range_parts = part.split('-')
+                if len(range_parts) != 2:
+                    return None
+                
+                try:
+                    start = int(range_parts[0].strip())
+                    end = int(range_parts[1].strip())
+                    
+                    if start <= end:
+                        numbers.extend(range(start, end + 1))
+                    else:
+                        numbers.extend(range(start, end - 1, -1))
+                except ValueError:
+                    return None
+            else:
+                try:
+                    numbers.append(int(part))
+                except ValueError:
+                    return None
+        
+        return numbers
+    
+    def natural_sort_key(self, s):
+        """Ключ для естественной сортировки как в проводнике Windows"""
+        return [int(text) if text.isdigit() else text.lower()
+                for text in re.split('([0-9]+)', s)]
+    
+    def get_attack_expected_count(self, attack_name, device):
+        """Получает ожидаемое количество папок для атаки и устройства"""
+        if attack_name not in self.attack_ranges:
+            return 0
+        
+        if device == "все":
+            min_num = None
+            max_num = None
+            for device_name in ["kozen 10", "kozen 12"]:
+                if device_name in self.attack_ranges[attack_name]:
+                    start, end = self.attack_ranges[attack_name][device_name]
+                    if min_num is None or start < min_num:
+                        min_num = start
+                    if max_num is None or end > max_num:
+                        max_num = end
+            
+            if min_num is not None and max_num is not None:
+                return max_num - min_num + 1
+            return 0
+        else:
+            if device in self.attack_ranges[attack_name]:
+                start, end = self.attack_ranges[attack_name][device]
+                return end - start + 1
+            return 0
+
     def log(self, message, level="INFO"):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
@@ -686,7 +882,6 @@ class ModernFolderRenamer:
                     errors.append(f"Папка '{folder}' пустая")
             
             # Проверка числовых имен (только при check_names=True)
-            # ВАЖНО: проверяем только папки атак, внутренние папки могут иметь любые имена
             if check_names:
                 non_numeric = [f for f in folders if not f.isdigit()]
                 if non_numeric:
@@ -709,142 +904,6 @@ class ModernFolderRenamer:
                 error_msg = f"Ошибка проверки папки: {str(e)}"
                 self.check_log(error_msg, "ERROR", indent)
             return False
-    
-    def get_folder_creation_time(self, folder_path):
-        """Получает время создания папки"""
-        try:
-            return os.path.getctime(folder_path)
-        except:
-            return 0
-    
-    def calculate_shooting_time(self, folders, source_folder):
-        """Вычисляет время съёмки на основе дат создания папок с учётом нескольких дней"""
-        if not folders:
-            return "не удалось вычислить"
-        
-        try:
-            # Получаем времена создания всех папок
-            creation_times = []
-            for folder in folders:
-                folder_path = os.path.join(source_folder, folder)
-                creation_time = self.get_folder_creation_time(folder_path)
-                if creation_time > 0:
-                    creation_times.append((folder, creation_time))
-            
-            if not creation_times:
-                return "не удалось вычислить"
-            
-            # Сортируем по времени создания
-            creation_times.sort(key=lambda x: x[1])
-            
-            # Группируем папки по дням
-            days_dict = {}
-            for folder_name, timestamp in creation_times:
-                dt = datetime.datetime.fromtimestamp(timestamp)
-                date_key = dt.date()
-                
-                if date_key not in days_dict:
-                    days_dict[date_key] = []
-                
-                days_dict[date_key].append((folder_name, timestamp, dt))
-            
-            # Вычисляем общее время съёмки
-            total_seconds = 0
-            
-            for date_key, day_folders in days_dict.items():
-                if len(day_folders) > 1:
-                    # Время съёмки за день = разница между последней и первой папкой
-                    first_folder_time = day_folders[0][1]
-                    last_folder_time = day_folders[-1][1]
-                    day_duration = last_folder_time - first_folder_time
-                    total_seconds += day_duration
-                    
-                    # Логируем информацию о дне
-                    first_dt = day_folders[0][2]
-                    last_dt = day_folders[-1][2]
-                    self.log(f"📅 День {date_key}: {first_dt.strftime('%H:%M:%S')} - {last_dt.strftime('%H:%M:%S')} "
-                           f"({len(day_folders)} папок, время: {self.format_duration(day_duration)})", "DETAIL")
-                elif len(day_folders) == 1:
-                    # Если папка одна в день - время съёмки 0
-                    self.log(f"📅 День {date_key}: 1 папка, время съёмки: 00:00:00", "DETAIL")
-            
-            if total_seconds == 0:
-                return "00:00:00"
-            
-            return self.format_duration(total_seconds)
-            
-        except Exception as e:
-            self.log(f"Ошибка вычисления времени съёмки: {str(e)}", "WARNING")
-            return "не удалось вычислить"
-    
-    def format_duration(self, total_seconds):
-        """Форматирует длительность в формат HH:MM:SS"""
-        hours = int(total_seconds // 3600)
-        minutes = int((total_seconds % 3600) // 60)
-        seconds = int(total_seconds % 60)
-        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-    
-    def parse_number_range(self, range_str):
-        """Парсинг диапазона номеров с сохранением порядка ввода"""
-        numbers = []
-        parts = [part.strip() for part in range_str.split(',')]
-        
-        for part in parts:
-            if not part:
-                continue
-                
-            if '-' in part:
-                range_parts = part.split('-')
-                if len(range_parts) != 2:
-                    return None
-                
-                try:
-                    start = int(range_parts[0].strip())
-                    end = int(range_parts[1].strip())
-                    
-                    if start <= end:
-                        numbers.extend(range(start, end + 1))
-                    else:
-                        numbers.extend(range(start, end - 1, -1))
-                except ValueError:
-                    return None
-            else:
-                try:
-                    numbers.append(int(part))
-                except ValueError:
-                    return None
-        
-        return numbers
-    
-    def natural_sort_key(self, s):
-        """Ключ для естественной сортировки как в проводнике Windows"""
-        return [int(text) if text.isdigit() else text.lower()
-                for text in re.split('([0-9]+)', s)]
-    
-    def get_attack_expected_count(self, attack_name, device):
-        """Получает ожидаемое количество папок для атаки и устройства"""
-        if attack_name not in self.attack_ranges:
-            return 0
-        
-        if device == "все":
-            min_num = None
-            max_num = None
-            for device_name in ["kozen 10", "kozen 12"]:
-                if device_name in self.attack_ranges[attack_name]:
-                    start, end = self.attack_ranges[attack_name][device_name]
-                    if min_num is None or start < min_num:
-                        min_num = start
-                    if max_num is None or end > max_num:
-                        max_num = end
-            
-            if min_num is not None and max_num is not None:
-                return max_num - min_num + 1
-            return 0
-        else:
-            if device in self.attack_ranges[attack_name]:
-                start, end = self.attack_ranges[attack_name][device]
-                return end - start + 1
-            return 0
     
     def execute_renaming(self):
         source_folder = self.source_entry.get()
