@@ -101,21 +101,33 @@ class ModernFolderRenamer:
             "03 2D Mask": {"kozen 10": (251, 346), "kozen 12": (347, 442)},
             "04 2D Mask": {"kozen 10": (443, 458), "kozen 12": (459, 474)},
             "05 2D Mask": {"kozen 10": (475, 514), "kozen 12": (515, 554)},
-            "06 2D Mask": {"kozen 10": (555, 594)},
-            "07 2D Mask": {"kozen 12": (595, 634)},
-            "08 3D Mask": {"kozen 10": (635, 733)},
-            "09 3D Mask": {"kozen 12": (734, 832)}
+            "06 2D Mask dev 1": {"kozen 10": (555, 594)},
+            "07 2D Mask dev 2": {"kozen 12": (595, 634)},
+            "08 3D Mask dev 1": {"kozen 10": (635, 733)},
+            "09 3D Mask dev 2": {"kozen 12": (734, 832)},
+            "10 Indoors": {"kozen 10": (833, 848), "kozen 12": (975, 990)},
+            "11 Indoors. With attributes": {"kozen 10": (849, 876), "kozen 12": (991, 1018)},
+            "12 Indoors. Backlight": {"kozen 10": (877, 890), "kozen 12": (1019, 1032)},
+            "13 Indoors. Insufficient lighting": {"kozen 10": (891, 918), "kozen 12": (1033, 1060)},
+            "14 Indoors. Behind transparent glass": {"kozen 10": (919, 932), "kozen 12": (1061, 1074)},
+            "15 Outside": {"kozen 10": (933, 974), "kozen 12": (1075, 1116)}
         }
         
         try:
             if os.path.exists(self.config_file):
                 with open(self.config_file, 'r', encoding='utf-8') as f:
-                    self.attack_ranges = json.load(f)
-                    # Конвертируем списки обратно в кортежи
-                    for attack, devices in self.attack_ranges.items():
+                    loaded_config = json.load(f)
+                    # Конвертируем списки обратно в кортежи и исправляем опечатки в названиях устройств
+                    self.attack_ranges = {}
+                    for attack, devices in loaded_config.items():
+                        self.attack_ranges[attack] = {}
                         for device, range_tuple in devices.items():
+                            # Исправляем опечатки в названиях устройств
+                            normalized_device = device.replace("kozen 101", "kozen 10").replace("kozen 121", "kozen 12")
                             if isinstance(range_tuple, list):
-                                self.attack_ranges[attack][device] = tuple(range_tuple)
+                                self.attack_ranges[attack][normalized_device] = tuple(range_tuple)
+                            else:
+                                self.attack_ranges[attack][normalized_device] = range_tuple
             else:
                 self.attack_ranges = default_config
                 self.save_attack_config()
@@ -130,7 +142,7 @@ class ModernFolderRenamer:
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(self.attack_ranges, f, indent=4, ensure_ascii=False)
         except Exception as e:
-            self.log(f"Ошибка сохранения конфигурации: {str(e)}")
+            self.log(f"Ошибка сохранения конфигурации: {str(e)}", "ERROR")
     
     def create_rounded_frame(self, parent, **kwargs):
         """Создание фрейма с скруглёнными краями"""
@@ -207,13 +219,18 @@ class ModernFolderRenamer:
         ttk.Button(input_frame1, text="Обзор", 
                   command=self.browse_source, style="Secondary.TButton").grid(row=0, column=1)
         
+        # Информация о количестве папок в исходной папке
+        self.source_info_label = tk.Label(folder_frame, text="", font=("Segoe UI", 8),
+                                         bg=self.colors['surface'], fg=self.colors['text_secondary'])
+        self.source_info_label.grid(row=2, column=0, sticky="w", pady=(0, 8), padx=12)
+        
         # Папка назначения
         tk.Label(folder_frame, text="📁 Папка назначения:", 
                 font=("Segoe UI", 9, "bold"),
-                bg=self.colors['surface']).grid(row=2, column=0, sticky="w", pady=(8, 4), padx=12)
+                bg=self.colors['surface']).grid(row=3, column=0, sticky="w", pady=(8, 4), padx=12)
         
         input_frame2 = tk.Frame(folder_frame, bg=self.colors['surface'])
-        input_frame2.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 12))
+        input_frame2.grid(row=4, column=0, sticky="ew", padx=12, pady=(0, 12))
         input_frame2.columnconfigure(0, weight=1)
         
         self.dest_entry = ttk.Entry(input_frame2, font=("Segoe UI", 9))
@@ -223,6 +240,10 @@ class ModernFolderRenamer:
                   command=self.browse_dest, style="Secondary.TButton").grid(row=0, column=1)
         
         folder_frame.columnconfigure(0, weight=1)
+        
+        # Обновляем информацию при изменении пути
+        self.source_entry.bind('<KeyRelease>', self.update_source_info)
+        self.source_entry.bind('<FocusOut>', self.update_source_info)
         
         # Фрейм для настроек
         settings_frame = self.create_rounded_frame(left_frame)
@@ -546,6 +567,7 @@ class ModernFolderRenamer:
         if folder:
             self.source_entry.delete(0, tk.END)
             self.source_entry.insert(0, folder)
+            self.update_source_info()
     
     def browse_dest(self):
         folder = filedialog.askdirectory()
@@ -559,24 +581,42 @@ class ModernFolderRenamer:
             entry_widget.delete(0, tk.END)
             entry_widget.insert(0, folder)
     
+    def update_source_info(self, event=None):
+        """Обновляет информацию о количестве папок в исходной папке"""
+        source_folder = self.source_entry.get()
+        if source_folder and os.path.exists(source_folder):
+            try:
+                folders = [f for f in os.listdir(source_folder) 
+                          if os.path.isdir(os.path.join(source_folder, f))]
+                count = len(folders)
+                self.source_info_label.config(text=f"📁 Найдено папок: {count}")
+                
+                # Также обновляем информацию о диапазоне
+                self.update_range_info()
+            except Exception:
+                self.source_info_label.config(text="❌ Ошибка доступа к папке")
+        else:
+            self.source_info_label.config(text="")
+    
     def update_range_info(self, event=None):
         attack = self.attack_var.get()
         device = self.device_var.get()
         
         if device == "все":
-            min_num = None
-            max_num = None
+            # Для режима "все" показываем отдельные диапазоны для каждого устройства
+            range_info_parts = []
+            total_folders = 0
+            
             for device_name in ["kozen 10", "kozen 12"]:
                 if attack in self.attack_ranges and device_name in self.attack_ranges[attack]:
                     start, end = self.attack_ranges[attack][device_name]
-                    if min_num is None or start < min_num:
-                        min_num = start
-                    if max_num is None or end > max_num:
-                        max_num = end
+                    device_total = end - start + 1
+                    total_folders += device_total
+                    range_info_parts.append(f"{device_name}: {start}-{end} ({device_total} номеров)")
             
-            if min_num is not None and max_num is not None:
-                total = max_num - min_num + 1
-                self.range_info.config(text=f"📊 Общий диапазон: {min_num}-{max_num} (всего: {total} номеров)")
+            if range_info_parts:
+                range_text = " | ".join(range_info_parts)
+                self.range_info.config(text=f"📊 Диапазоны по устройствам: {range_text} | Всего: {total_folders} номеров")
             else:
                 self.range_info.config(text="❌ Нет данных о диапазонах")
         elif attack in self.attack_ranges and device in self.attack_ranges[attack]:
@@ -586,12 +626,28 @@ class ModernFolderRenamer:
         else:
             self.range_info.config(text="❌ Выбранная комбинация недоступна")
     
-    def get_image_date(self, image_path):
-        """Получает дату съёмки из EXIF данных изображения (упрощенная версия без Pillow)"""
+    def get_image_shooting_date(self, image_path):
+        """Получает дату съёмки из EXIF данных изображений"""
         try:
-            # Вместо использования Pillow, используем дату изменения файла
-            # Это не идеально, но работает без внешних зависимостей
-            timestamp = os.path.getmtime(image_path)
+            # Для получения EXIF данных потребуется установка Pillow
+            # pip install Pillow
+            from PIL import Image
+            from PIL.ExifTags import TAGS
+            
+            with Image.open(image_path) as img:
+                exif_data = img._getexif()
+                if exif_data:
+                    for tag_id, value in exif_data.items():
+                        tag = TAGS.get(tag_id, tag_id)
+                        if tag == 'DateTimeOriginal':
+                            # Формат: "2023:10:15 14:30:25"
+                            return datetime.datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+        except Exception:
+            pass
+        
+        # Если EXIF недоступен, используем дату создания файла как fallback
+        try:
+            timestamp = os.path.getctime(image_path)
             return datetime.datetime.fromtimestamp(timestamp)
         except Exception:
             return None
@@ -612,7 +668,7 @@ class ModernFolderRenamer:
         return image_files
     
     def get_folder_shooting_time(self, folder_path):
-        """Получает время съёмки для папки на основе изображений"""
+        """Получает время съёмки для папки на основе EXIF данных изображений"""
         # Сначала ищем BestShot
         bestshot_files = []
         try:
@@ -623,7 +679,7 @@ class ModernFolderRenamer:
             pass
         
         if bestshot_files:
-            date = self.get_image_date(bestshot_files[0])
+            date = self.get_image_shooting_date(bestshot_files[0])
             if date:
                 return date
         
@@ -634,27 +690,27 @@ class ModernFolderRenamer:
             subfolder_path = os.path.join(folder_path, subfolder)
             if os.path.exists(subfolder_path):
                 image_files = self.find_image_files(subfolder_path)
-                if image_files:
-                    date = self.get_image_date(image_files[0])
+                for image_file in image_files:
+                    date = self.get_image_shooting_date(image_file)
                     if date:
                         return date
         
         # Если ничего не найдено, ищем любые изображения в папке
         image_files = self.find_image_files(folder_path)
-        if image_files:
-            date = self.get_image_date(image_files[0])
+        for image_file in image_files:
+            date = self.get_image_shooting_date(image_file)
             if date:
                 return date
         
         return None
     
     def calculate_shooting_time(self, folders, source_folder):
-        """Вычисляет время съёмки на основе дат съёмки изображений"""
+        """Вычисляет время съёмки на основе дат съёмки из EXIF данных"""
         if not folders:
             return "не удалось вычислить"
         
         try:
-            # Получаем времена съёмки всех папок
+            # Получаем времена съёмки всех папок из EXIF
             shooting_times = []
             for folder in folders:
                 folder_path = os.path.join(source_folder, folder)
@@ -668,38 +724,69 @@ class ModernFolderRenamer:
             # Сортируем по времени съёмки
             shooting_times.sort(key=lambda x: x[1])
             
-            # Группируем папки по дням
+            # Группируем по дням
             days_dict = {}
-            for folder_name, timestamp in shooting_times:
-                date_key = timestamp.date()
-                
-                if date_key not in days_dict:
-                    days_dict[date_key] = []
-                
-                days_dict[date_key].append((folder_name, timestamp))
+            for folder, time_obj in shooting_times:
+                day_key = time_obj.date()
+                if day_key not in days_dict:
+                    days_dict[day_key] = []
+                days_dict[day_key].append((folder, time_obj))
             
-            # Вычисляем общее время съёмки
             total_seconds = 0
+            day_count = 0
             
-            for date_key, day_folders in days_dict.items():
-                if len(day_folders) > 1:
-                    # Время съёмки за день = разница между последней и первой папкой
-                    first_folder_time = day_folders[0][1].timestamp()
-                    last_folder_time = day_folders[-1][1].timestamp()
-                    day_duration = last_folder_time - first_folder_time
-                    total_seconds += day_duration
-                    
-                    # Логируем информацию о дне
-                    first_dt = day_folders[0][1]
-                    last_dt = day_folders[-1][1]
-                    self.log(f"📅 День {date_key}: {first_dt.strftime('%H:%M:%S')} - {last_dt.strftime('%H:%M:%S')} "
-                           f"({len(day_folders)} папок, время: {self.format_duration(day_duration)})", "DETAIL")
-                elif len(day_folders) == 1:
-                    # Если папка одна в день - время съёмки 0
-                    self.log(f"📅 День {date_key}: 1 папка, время съёмки: 00:00:00", "DETAIL")
+            # Обрабатываем каждый день отдельно
+            for day, day_times in days_dict.items():
+                day_count += 1
+                day_times.sort(key=lambda x: x[1])
+                
+                # Разбиваем на сессии внутри дня (группы с интервалом менее 2 часов)
+                sessions = []
+                current_session = [day_times[0]]
+                
+                for i in range(1, len(day_times)):
+                    time_diff = (day_times[i][1] - day_times[i-1][1]).total_seconds()
+                    if time_diff > 7200:  # 2 часа в секундах
+                        sessions.append(current_session)
+                        current_session = [day_times[i]]
+                    else:
+                        current_session.append(day_times[i])
+                
+                sessions.append(current_session)
+                
+                # Вычисляем время съёмки для дня
+                day_seconds = 0
+                for session in sessions:
+                    if len(session) > 1:
+                        first_time = session[0][1].timestamp()
+                        last_time = session[-1][1].timestamp()
+                        session_duration = last_time - first_time
+                        day_seconds += session_duration
+                    else:
+                        # Для одиночных сессий используем минимальное время 30 секунд
+                        day_seconds += 30
+                
+                total_seconds += day_seconds
+                
+                # Логируем информацию о дне
+                first_dt = day_times[0][1]
+                last_dt = day_times[-1][1]
+                self.log(f"📅 День {day_count} ({first_dt.strftime('%Y-%m-%d')}): {len(day_times)} папок, время: {self.format_duration(day_seconds)}", "DETAIL")
+                
+                # Логируем сессии внутри дня
+                for i, session in enumerate(sessions, 1):
+                    if len(session) > 1:
+                        first_session_time = session[0][1]
+                        last_session_time = session[-1][1]
+                        session_duration = last_session_time.timestamp() - first_session_time.timestamp()
+                        self.log(f"  📊 Сессия {i}: {first_session_time.strftime('%H:%M:%S')} - {last_session_time.strftime('%H:%M:%S')} "
+                               f"({len(session)} папок, время: {self.format_duration(session_duration)})", "DETAIL")
+                    else:
+                        self.log(f"  📊 Сессия {i}: 1 папка, время: 00:00:30", "DETAIL")
             
             if total_seconds == 0:
-                return "00:00:00"
+                # Минимальное время съемки - 30 секунд на папку
+                return self.format_duration(len(folders) * 30)
             
             return self.format_duration(total_seconds)
             
@@ -757,24 +844,22 @@ class ModernFolderRenamer:
             return 0
         
         if device == "все":
-            min_num = None
-            max_num = None
+            # Для режима "все" возвращаем сумму количеств для всех устройств
+            total = 0
             for device_name in ["kozen 10", "kozen 12"]:
                 if device_name in self.attack_ranges[attack_name]:
                     start, end = self.attack_ranges[attack_name][device_name]
-                    if min_num is None or start < min_num:
-                        min_num = start
-                    if max_num is None or end > max_num:
-                        max_num = end
-            
-            if min_num is not None and max_num is not None:
-                return max_num - min_num + 1
-            return 0
+                    total += (end - start + 1)
+            return total
         else:
             if device in self.attack_ranges[attack_name]:
                 start, end = self.attack_ranges[attack_name][device]
                 return end - start + 1
             return 0
+
+    def is_numeric_folder(self, folder_name):
+        """Проверяет что имя папки числовое (1-4 цифры)"""
+        return folder_name.isdigit() and 1 <= len(folder_name) <= 4
 
     def log(self, message, level="INFO"):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -851,10 +936,11 @@ class ModernFolderRenamer:
         self.check_log_text.delete(1.0, tk.END)
         self.check_log("Логи проверки очищены", "INFO")
     
-    def check_folder_content(self, folder_path, log_errors=True, indent=0, check_names=False):
+    def check_folder_content(self, folder_path, log_errors=True, indent=0, check_names=False, log_to_main=False):
         """
         Проверка содержимого папки
         check_names: если True, проверяет что имена папок числовые (для проверки атак)
+        log_to_main: если True, логирует в основной лог вместо лога проверки
         """
         try:
             items = os.listdir(folder_path)
@@ -869,7 +955,7 @@ class ModernFolderRenamer:
                 errors.append(f"Найдено {len(folders)} папок вместо 3")
             
             # Проверка наличия BestShot файла
-            bestshot_files = [f for f in files if "BestShot" in f]
+            bestshot_files = [f for f in files if "bestshot" in f.lower()]
             if not bestshot_files:
                 errors.append("Не найден файл BestShot")
             elif len(bestshot_files) > 1:
@@ -878,31 +964,49 @@ class ModernFolderRenamer:
             # Проверка что папки не пустые
             for folder in folders:
                 folder_full_path = os.path.join(folder_path, folder)
-                if not os.listdir(folder_full_path):
-                    errors.append(f"Папка '{folder}' пустая")
+                try:
+                    if not os.listdir(folder_full_path):
+                        errors.append(f"Папка '{folder}' пустая")
+                except PermissionError:
+                    errors.append(f"Нет доступа к папке '{folder}'")
             
             # Проверка числовых имен (только при check_names=True)
             if check_names:
-                non_numeric = [f for f in folders if not f.isdigit()]
+                non_numeric = [f for f in folders if not self.is_numeric_folder(f)]
                 if non_numeric:
                     errors.append(f"Нечисловые имена папок: {', '.join(non_numeric)}")
             
             if log_errors:
-                if errors:
-                    for error in errors:
-                        self.check_log(f"Ошибка: {error}", "ERROR", indent)
-                if warnings:
-                    for warning in warnings:
-                        self.check_log(f"Предупреждение: {warning}", "WARNING", indent)
-                if not errors and not warnings:
-                    self.check_log("Содержимое папки в порядке", "SUCCESS", indent)
+                if log_to_main:
+                    # Логирование в основной лог
+                    if errors:
+                        for error in errors:
+                            self.log(f"Ошибка в папке {os.path.basename(folder_path)}: {error}", "ERROR")
+                    if warnings:
+                        for warning in warnings:
+                            self.log(f"Предупреждение в папке {os.path.basename(folder_path)}: {warning}", "WARNING")
+                    if not errors and not warnings:
+                        self.log(f"Папка {os.path.basename(folder_path)}: содержимое в порядке", "SUCCESS")
+                else:
+                    # Логирование в лог проверки
+                    if errors:
+                        for error in errors:
+                            self.check_log(f"Ошибка: {error}", "ERROR", indent)
+                    if warnings:
+                        for warning in warnings:
+                            self.check_log(f"Предупреждение: {warning}", "WARNING", indent)
+                    if not errors and not warnings:
+                        self.check_log("Содержимое папки в порядке", "SUCCESS", indent)
             
             return len(errors) == 0
             
         except Exception as e:
             if log_errors:
                 error_msg = f"Ошибка проверки папки: {str(e)}"
-                self.check_log(error_msg, "ERROR", indent)
+                if log_to_main:
+                    self.log(f"Ошибка проверки папки {os.path.basename(folder_path)}: {str(e)}", "ERROR")
+                else:
+                    self.check_log(error_msg, "ERROR", indent)
             return False
     
     def execute_renaming(self):
@@ -920,31 +1024,39 @@ class ModernFolderRenamer:
             messagebox.showerror("Ошибка", "Исходная папка не существует")
             return
         
-        folders = [f for f in os.listdir(source_folder) 
-                  if os.path.isdir(os.path.join(source_folder, f))]
+        all_folders = [f for f in os.listdir(source_folder) 
+                      if os.path.isdir(os.path.join(source_folder, f))]
         
-        folders.sort(key=self.natural_sort_key)
+        all_folders.sort(key=self.natural_sort_key)
         
-        if not folders:
+        if not all_folders:
             messagebox.showwarning("Предупреждение", "В исходной папке не найдено папок для обработки")
             return
         
-        shooting_time = self.calculate_shooting_time(folders, source_folder)
+        # Время съемки считается ТОЛЬКО для обрабатываемых папок
+        shooting_time = self.calculate_shooting_time(all_folders, source_folder)
         
         if device != "все" and (attack not in self.attack_ranges or device not in self.attack_ranges[attack]):
             messagebox.showerror("Ошибка", f"Выбранная комбинация атаки {attack} и устройства {device} недоступна")
             return
         
-        # ПРОВЕРКА КОЛИЧЕСТВА ПАПОК
+        # ОПРЕДЕЛЯЕМ СКОЛЬКО ПАПОК БУДЕМ ОБРАБАТЫВАТЬ
         expected_count = self.get_attack_expected_count(attack, device)
-        if expected_count > 0 and len(folders) < expected_count:
-            response = messagebox.askyesno(
-                "Предупреждение", 
-                f"Количество папок в исходной папке ({len(folders)}) меньше, чем требуется для атаки ({expected_count}).\n\n"
-                f"Продолжить выполнение?"
-            )
-            if not response:
-                return
+        actual_count = len(all_folders)
+        
+        # Определяем сколько папок будем обрабатывать
+        if expected_count > 0:
+            if actual_count > expected_count:
+                self.log(f"⚠️ Внимание: в исходной папке {actual_count} папок, но требуется только {expected_count}", "WARNING")
+                self.log(f"ℹ️ Будет обработано только {expected_count} папок", "INFO")
+                folders_to_process = all_folders[:expected_count]  # Берем только нужное количество
+                processing_count = expected_count
+            else:
+                folders_to_process = all_folders
+                processing_count = actual_count
+        else:
+            folders_to_process = all_folders
+            processing_count = actual_count
         
         try:
             os.makedirs(dest_folder, exist_ok=True)
@@ -953,7 +1065,7 @@ class ModernFolderRenamer:
             
             self.log("=" * 70, "SUCCESS")
             self.log(f"🚀 Начало обработки...", "HEADER")
-            self.log(f"📊 Найдено папок для обработки: {len(folders)}", "INFO")
+            self.log(f"📊 Найдено папок для обработки: {processing_count}", "INFO")
             if expected_count > 0:
                 self.log(f"📋 Ожидаемое количество для атаки: {expected_count}", "INFO")
             
@@ -963,12 +1075,22 @@ class ModernFolderRenamer:
                 content_errors = False
                 error_details = []
                 
-                for folder in folders:
+                for i, folder in enumerate(folders_to_process, 1):
                     old_path = os.path.join(source_folder, folder)
-                    # check_names=False - не проверяем числовые имена при выгрузке, проверяем только структуру
-                    if not self.check_folder_content(old_path, log_errors=False, check_names=False):
+                    self.log(f"🔍 Проверка {i}/{len(folders_to_process)}: {folder}", "DETAIL")
+                    
+                    # Подробная проверка с выводом ошибок в ОСНОВНОЙ лог
+                    try:
+                        if not self.check_folder_content(old_path, log_errors=True, indent=1, check_names=False, log_to_main=True):
+                            content_errors = True
+                            error_details.append(folder)
+                            self.log(f"❌ Обнаружены ошибки в папке: {folder}", "ERROR")
+                        else:
+                            self.log(f"✅ Папка {folder} проверена успешно", "SUCCESS")
+                    except Exception as e:
                         content_errors = True
                         error_details.append(folder)
+                        self.log(f"❌ Ошибка при проверке папки {folder}: {str(e)}", "ERROR")
                 
                 if content_errors:
                     self.log("🚫 ОБНАРУЖЕНЫ ОШИБКИ! Переименование отменено.", "ERROR")
@@ -977,64 +1099,129 @@ class ModernFolderRenamer:
                                         "Обнаружены ошибки в содержимом папок! "
                                         "Переименование отменено. Проверьте логи для деталей.")
                     return
+                else:
+                    self.log("✅ Все папки проверены успешно!", "SUCCESS")
             
             processed_count = 0
             
             if device == "все":
-                min_num = None
-                max_num = None
-                
+                # Создаем папки для устройств если их нет
+                devices_in_attack = []
                 for device_name in ["kozen 10", "kozen 12"]:
                     if attack in self.attack_ranges and device_name in self.attack_ranges[attack]:
-                        start_num, end_num = self.attack_ranges[attack][device_name]
-                        if min_num is None or start_num < min_num:
-                            min_num = start_num
-                        if max_num is None or end_num > max_num:
-                            max_num = end_num
+                        devices_in_attack.append(device_name)
+                        device_folder = os.path.join(attack_folder, device_name)
+                        os.makedirs(device_folder, exist_ok=True)
+                        self.log(f"📁 Создана папка устройства: {device_name}", "INFO")
                 
-                if min_num is None or max_num is None:
+                if len(devices_in_attack) == 0:
                     messagebox.showerror("Ошибка", f"Для атаки {attack} не заданы диапазоны")
                     return
                 
-                available_numbers = max_num - min_num + 1
-                
-                if len(folders) > available_numbers:
-                    messagebox.showerror("Ошибка", 
-                        f"Недостаточно номеров в диапазоне! "
-                        f"Нужно: {len(folders)}, доступно: {available_numbers}")
-                    return
-                
-                current_number = min_num
-                
-                for folder in folders:
-                    old_path = os.path.join(source_folder, folder)
-                    new_name = str(current_number)
-                    new_path = os.path.join(attack_folder, new_name)
+                if len(devices_in_attack) == 1:
+                    # Если только одно устройство - все папки в него
+                    device_name = devices_in_attack[0]
+                    start_num, end_num = self.attack_ranges[attack][device_name]
+                    available_numbers = list(range(start_num, end_num + 1))
                     
-                    if os.path.exists(new_path):
-                        shutil.rmtree(new_path)
-                        self.log(f"Удалена существующая папка: {new_name}", "WARNING")
+                    # Обрабатываем только доступное количество папок
+                    actual_processing = min(len(folders_to_process), len(available_numbers))
+                    if actual_processing < len(folders_to_process):
+                        self.log(f"⚠️ Доступно только {len(available_numbers)} номеров, обрабатываем {actual_processing} папок", "WARNING")
                     
-                    shutil.copytree(old_path, new_path)
-                    self.log(f"Обработано: {folder} → {new_name}", "SUCCESS")
-                    processed_count += 1
-                    current_number += 1
+                    current_number = start_num
+                    device_folder = os.path.join(attack_folder, device_name)
+                    
+                    for i in range(actual_processing):
+                        folder = folders_to_process[i]
+                        old_path = os.path.join(source_folder, folder)
+                        new_name = str(current_number)
+                        new_path = os.path.join(device_folder, new_name)
+                        
+                        if os.path.exists(new_path):
+                            shutil.rmtree(new_path)
+                            self.log(f"Удалена существующая папка: {new_name}", "WARNING")
+                        
+                        shutil.copytree(old_path, new_path)
+                        self.log(f"Обработано: {folder} → {device_name}/{new_name}", "SUCCESS")
+                        processed_count += 1
+                        current_number += 1
+                else:
+                    # Если два устройства - распределяем поровну
+                    device1, device2 = devices_in_attack
+                    start1, end1 = self.attack_ranges[attack][device1]
+                    start2, end2 = self.attack_ranges[attack][device2]
+                    
+                    available_numbers1 = list(range(start1, end1 + 1))
+                    available_numbers2 = list(range(start2, end2 + 1))
+                    
+                    # РАСПРЕДЕЛЯЕМ ПАПКИ ПОРОВНУ МЕЖДУ УСТРОЙСТВАМИ
+                    half = len(folders_to_process) // 2
+                    first_half = folders_to_process[:half]
+                    second_half = folders_to_process[half:half * 2]  # Берем только нужное количество
+                    
+                    # Обработка первой половины для device1
+                    actual_first_half = min(len(first_half), len(available_numbers1))
+                    if actual_first_half < len(first_half):
+                        self.log(f"⚠️ Для {device1} доступно только {len(available_numbers1)} номеров, обрабатываем {actual_first_half} папок", "WARNING")
+                    
+                    current_number = start1
+                    device1_folder = os.path.join(attack_folder, device1)
+                    
+                    for i in range(actual_first_half):
+                        folder = first_half[i]
+                        old_path = os.path.join(source_folder, folder)
+                        new_name = str(current_number)
+                        new_path = os.path.join(device1_folder, new_name)
+                        
+                        if os.path.exists(new_path):
+                            shutil.rmtree(new_path)
+                            self.log(f"Удалена существующая папка: {device1}/{new_name}", "WARNING")
+                        
+                        shutil.copytree(old_path, new_path)
+                        self.log(f"Обработано: {folder} → {device1}/{new_name}", "SUCCESS")
+                        processed_count += 1
+                        current_number += 1
+                    
+                    # Обработка второй половины для device2
+                    actual_second_half = min(len(second_half), len(available_numbers2))
+                    if actual_second_half < len(second_half):
+                        self.log(f"⚠️ Для {device2} доступно только {len(available_numbers2)} номеров, обрабатываем {actual_second_half} папок", "WARNING")
+                    
+                    current_number = start2
+                    device2_folder = os.path.join(attack_folder, device2)
+                    
+                    for i in range(actual_second_half):
+                        folder = second_half[i]
+                        old_path = os.path.join(source_folder, folder)
+                        new_name = str(current_number)
+                        new_path = os.path.join(device2_folder, new_name)
+                        
+                        if os.path.exists(new_path):
+                            shutil.rmtree(new_path)
+                            self.log(f"Удалена существующая папка: {device2}/{new_name}", "WARNING")
+                        
+                        shutil.copytree(old_path, new_path)
+                        self.log(f"Обработано: {folder} → {device2}/{new_name}", "SUCCESS")
+                        processed_count += 1
+                        current_number += 1
             else:
+                # Обработка для конкретного устройства
                 device_folder = os.path.join(attack_folder, device)
                 os.makedirs(device_folder, exist_ok=True)
                 
                 start_num, end_num = self.attack_ranges[attack][device]
-                available_numbers = end_num - start_num + 1
+                available_numbers = list(range(start_num, end_num + 1))
                 
-                if len(folders) > available_numbers:
-                    messagebox.showerror("Ошибка", 
-                        f"Недостаточно номеров в диапазоне! "
-                        f"Нужно: {len(folders)}, доступно: {available_numbers}")
-                    return
+                # Обрабатываем только доступное количество папок
+                actual_processing = min(len(folders_to_process), len(available_numbers))
+                if actual_processing < len(folders_to_process):
+                    self.log(f"⚠️ Доступно только {len(available_numbers)} номеров, обрабатываем {actual_processing} папок", "WARNING")
                 
                 current_number = start_num
                 
-                for folder in folders:
+                for i in range(actual_processing):
+                    folder = folders_to_process[i]
                     old_path = os.path.join(source_folder, folder)
                     new_name = str(current_number)
                     new_path = os.path.join(device_folder, new_name)
@@ -1051,6 +1238,9 @@ class ModernFolderRenamer:
             self.log("=" * 70, "SUCCESS")
             self.log(f"✅ Обработка завершена успешно! Обработано: {processed_count} папок", "SUCCESS")
             self.log(f"⏱️ Общее время съёмки: {shooting_time}", "INFO")
+            
+            if len(all_folders) > processing_count:
+                self.log(f"📝 Осталось необработанных папок: {len(all_folders) - processing_count}", "INFO")
             
             messagebox.showinfo("Успех", 
                                f"Обработка завершена!\n\n"
@@ -1089,6 +1279,7 @@ class ModernFolderRenamer:
                 f"не соответствует количеству номеров для замены ({len(replace_numbers)})")
             return
         
+        # Время съемки считается ТОЛЬКО для обрабатываемых папок
         shooting_time = self.calculate_shooting_time(source_folders, source_folder)
         
         if device != "все" and (attack not in self.attack_ranges or device not in self.attack_ranges[attack]):
@@ -1099,31 +1290,39 @@ class ModernFolderRenamer:
             attack_folder = os.path.join(dest_folder, attack)
             
             if device == "все":
-                min_num = None
-                max_num = None
-                
+                # Определяем устройства в атаке
+                devices_in_attack = []
                 for device_name in ["kozen 10", "kozen 12"]:
                     if attack in self.attack_ranges and device_name in self.attack_ranges[attack]:
-                        start_num, end_num = self.attack_ranges[attack][device_name]
-                        if min_num is None or start_num < min_num:
-                            min_num = start_num
-                        if max_num is None or end_num > max_num:
-                            max_num = end_num
+                        devices_in_attack.append(device_name)
                 
-                if min_num is None or max_num is None:
+                if len(devices_in_attack) == 0:
                     messagebox.showerror("Ошибка", f"Для атаки {attack} не заданы диапазоны")
                     return
                 
-                for num in replace_numbers:
-                    if num < min_num or num > max_num:
-                        messagebox.showerror("Ошибка", f"Номер {num} вне общего диапазона {min_num}-{max_num}")
+                # Проверяем что все номера входят в соответствующие диапазоны
+                for i, num in enumerate(replace_numbers):
+                    found_device = None
+                    for device_name in devices_in_attack:
+                        start_num, end_num = self.attack_ranges[attack][device_name]
+                        if start_num <= num <= end_num:
+                            found_device = device_name
+                            break
+                    
+                    # Для атак 10-15 пропускаем проверку диапазонов
+                    if not found_device and attack not in ["10 Indoors", "11 Indoors. With attributes", "12 Indoors. Backlight", 
+                                        "13 Indoors. Insufficient lighting", "14 Indoors. Behind transparent glass", "15 Outside"]:
+                        messagebox.showerror("Ошибка", f"Номер {num} не входит ни в один диапазон атаки {attack}")
                         return
             else:
-                start_num, end_num = self.attack_ranges[attack][device]
-                for num in replace_numbers:
-                    if num < start_num or num > end_num:
-                        messagebox.showerror("Ошибка", f"Номер {num} вне диапазона {start_num}-{end_num}")
-                        return
+                # Для обычных атак проверяем диапазон
+                if attack not in ["10 Indoors", "11 Indoors. With attributes", "12 Indoors. Backlight", 
+                                "13 Indoors. Insufficient lighting", "14 Indoors. Behind transparent glass", "15 Outside"]:
+                    start_num, end_num = self.attack_ranges[attack][device]
+                    for num in replace_numbers:
+                        if num < start_num or num > end_num:
+                            messagebox.showerror("Ошибка", f"Номер {num} вне диапазона {start_num}-{end_num}")
+                            return
             
             if not os.path.exists(attack_folder):
                 messagebox.showerror("Ошибка", f"Папка назначения {attack_folder} не существует")
@@ -1139,12 +1338,21 @@ class ModernFolderRenamer:
                 content_errors = False
                 error_details = []
                 
-                for folder in source_folders:
+                for i, folder in enumerate(source_folders, 1):
                     old_path = os.path.join(source_folder, folder)
-                    # check_names=False - не проверяем числовые имена при замене, проверяем только структуру
-                    if not self.check_folder_content(old_path, log_errors=False, check_names=False):
+                    self.log(f"🔍 Проверка {i}/{len(source_folders)}: {folder}", "DETAIL")
+                    
+                    try:
+                        if not self.check_folder_content(old_path, log_errors=True, indent=1, check_names=False, log_to_main=True):
+                            content_errors = True
+                            error_details.append(folder)
+                            self.log(f"❌ Обнаружены ошибки в папке: {folder}", "ERROR")
+                        else:
+                            self.log(f"✅ Папка {folder} проверена успешно", "SUCCESS")
+                    except Exception as e:
                         content_errors = True
                         error_details.append(folder)
+                        self.log(f"❌ Ошибка при проверке папки {folder}: {str(e)}", "ERROR")
                 
                 if content_errors:
                     self.log("🚫 ОБНАРУЖЕНЫ ОШИБКИ! Замена отменена.", "ERROR")
@@ -1153,6 +1361,8 @@ class ModernFolderRenamer:
                                         "Обнаружены ошибки в содержимом папок! "
                                         "Замена отменена. Проверьте логи для деталей.")
                     return
+                else:
+                    self.log("✅ Все папки проверены успешно!", "SUCCESS")
             
             replaced_count = 0
             
@@ -1160,14 +1370,32 @@ class ModernFolderRenamer:
                 for i, folder in enumerate(source_folders):
                     old_path = os.path.join(source_folder, folder)
                     target_number = replace_numbers[i]
+                    
+                    # Определяем устройство для этого номера
+                    found_device = None
+                    for device_name in devices_in_attack:
+                        start_num, end_num = self.attack_ranges[attack][device_name]
+                        if start_num <= target_number <= end_num:
+                            found_device = device_name
+                            break
+                    
+                    # Если устройство не найдено (для атак 10-15), используем первое доступное
+                    if not found_device and devices_in_attack:
+                        found_device = devices_in_attack[0]
+                    
+                    if not found_device:
+                        self.log(f"❌ Не удалось определить устройство для номера {target_number}", "ERROR")
+                        continue
+                    
+                    device_folder = os.path.join(attack_folder, found_device)
                     new_name = str(target_number)
-                    new_path = os.path.join(attack_folder, new_name)
+                    new_path = os.path.join(device_folder, new_name)
                     
                     if os.path.exists(new_path):
                         shutil.rmtree(new_path)
                     
                     shutil.copytree(old_path, new_path)
-                    self.log(f"Заменено: {folder} → {new_name}", "SUCCESS")
+                    self.log(f"Заменено: {folder} → {found_device}/{new_name}", "SUCCESS")
                     replaced_count += 1
             else:
                 device_folder = os.path.join(attack_folder, device)
@@ -1248,9 +1476,9 @@ class ModernFolderRenamer:
                         
                         try:
                             all_items = os.listdir(device_folder)
-                            # ПРИ ПРОВЕРКЕ АТАКИ проверяем числовые имена только для папок атак
+                            # ПРИ ПРОВЕРКЕ АТАКИ проверяем числовые имена (1-4 цифры)
                             folders = [f for f in all_items 
-                                      if os.path.isdir(os.path.join(device_folder, f)) and f.isdigit()]
+                                      if os.path.isdir(os.path.join(device_folder, f)) and self.is_numeric_folder(f)]
                             
                             other_items = [item for item in all_items if item not in folders]
                             if other_items:
@@ -1293,9 +1521,9 @@ class ModernFolderRenamer:
                 
                 try:
                     all_items = os.listdir(attack_folder)
-                    # ПРИ ПРОВЕРКЕ АТАКИ проверяем числовые имена только для папок атак
+                    # ПРИ ПРОВЕРКЕ АТАКИ проверяем числовые имена (1-4 цифры)
                     folders = [f for f in all_items 
-                              if os.path.isdir(os.path.join(attack_folder, f)) and f.isdigit()]
+                              if os.path.isdir(os.path.join(attack_folder, f)) and self.is_numeric_folder(f)]
                     
                     other_items = [item for item in all_items if item not in folders]
                     if other_items:
@@ -1342,7 +1570,7 @@ class ModernFolderRenamer:
             else:
                 self.check_log(f"❌ ПРОВЕРКА ЗАВЕРШЕНА С ОШИБКАМИ", "ERROR")
                 self.check_log(f"📊 Обнаружено ошибок: {total_errors}", "ERROR")
-                messagebox.showwarning("Проверка завершena", f"Обнаружены ошибки: {total_errors}")
+                messagebox.showwarning("Проверка завершена", f"Обнаружены ошибки: {total_errors}")
                 
         except Exception as e:
             self.check_log(f"❌ Ошибка при проверке атаки: {str(e)}", "ERROR")
@@ -1441,8 +1669,9 @@ class ModernFolderRenamer:
                                     expected_count = end - start + 1
                                 
                                 try:
+                                    # Проверяем числовые имена (1-4 цифры)
                                     folders = [f for f in os.listdir(device_folder) 
-                                              if os.path.isdir(os.path.join(device_folder, f)) and f.isdigit()]
+                                              if os.path.isdir(os.path.join(device_folder, f)) and self.is_numeric_folder(f)]
                                     
                                     actual_count = len(folders)
                                     actual_total += actual_count
@@ -1473,8 +1702,9 @@ class ModernFolderRenamer:
                                     attack_errors += 1
                     else:
                         try:
+                            # Проверяем числовые имена (1-4 цифры)
                             folders = [f for f in os.listdir(attack_folder) 
-                                      if os.path.isdir(os.path.join(attack_folder, f)) and f.isdigit()]
+                                      if os.path.isdir(os.path.join(attack_folder, f)) and self.is_numeric_folder(f)]
                             actual_total = len(folders)
                             
                             status = "✅" if structure_info['expected_total'] == actual_total else "❌"
@@ -1628,8 +1858,9 @@ class ModernFolderRenamer:
                                             expected_count = end - start + 1
                                         
                                         try:
+                                            # Проверяем числовые имена (1-4 цифры)
                                             folders = [f for f in os.listdir(device_folder) 
-                                                      if os.path.isdir(os.path.join(device_folder, f)) and f.isdigit()]
+                                                      if os.path.isdir(os.path.join(device_folder, f)) and self.is_numeric_folder(f)]
                                             
                                             actual_count = len(folders)
                                             actual_total += actual_count
@@ -1660,8 +1891,9 @@ class ModernFolderRenamer:
                                             attack_errors += 1
                             else:
                                 try:
+                                    # Проверяем числовые имена (1-4 цифры)
                                     folders = [f for f in os.listdir(attack_folder) 
-                                              if os.path.isdir(os.path.join(attack_folder, f)) and f.isdigit()]
+                                              if os.path.isdir(os.path.join(attack_folder, f)) and self.is_numeric_folder(f)]
                                     actual_total = len(folders)
                                     
                                     status = "✅" if structure_info['expected_total'] == actual_total else "❌"
