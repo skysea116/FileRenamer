@@ -10,7 +10,7 @@ import re
 class ModernFolderRenamer:
     def __init__(self, root):
         self.root = root
-        self.root.title("Folder Manager - Kozen")
+        self.root.title("Folder Manager - Kozen v2.8.1")
         self.root.geometry("1200x750")
         self.root.configure(bg='#f8f9fa')
         self.root.minsize(1000, 600)
