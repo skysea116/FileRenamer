@@ -1,1 +1,1 @@
-pyinstaller --onefile --windowed --name "FolderManager" --hidden-import=PIL --hidden-import=PIL._tkinter_finder --icon=icon.ico --noconfirm --clean folder_renamer.py
+pyinstaller --onefile --windowed --name "FolderManager" --hidden-import=PIL --hidden-import=PIL._tkinter_finder --icon=icon_2.ico --noconfirm --clean folder_renamer.py

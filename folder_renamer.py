@@ -6,11 +6,15 @@ import datetime
 import json
 import tkinter.simpledialog
 import re
+import pandas as pd
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.utils import get_column_letter
 
 class ModernFolderRenamer:
     def __init__(self, root):
         self.root = root
-        self.root.title("Folder Manager - Kozen v2.8.1")
+        self.root.title("Folder Manager - Kozen v2.9.0")
         self.root.geometry("1200x750")
         self.root.configure(bg='#f8f9fa')
         self.root.minsize(1000, 600)
@@ -21,6 +25,9 @@ class ModernFolderRenamer:
         # Загрузка конфигурации атак
         self.config_file = "attack_config.json"
         self.load_attack_config()
+        
+        # Данные для отчёта
+        self.shooting_report_data = []
         
         # Стили
         self.setup_styles()
@@ -406,9 +413,17 @@ class ModernFolderRenamer:
         
         input_frame1.columnconfigure(1, weight=1)
         
-        ttk.Button(attack_check_frame, text="🔍 Проверить атаку", 
+        button_frame1 = tk.Frame(attack_check_frame, bg=self.colors['surface'])
+        button_frame1.pack(fill="x", padx=12, pady=8)
+        
+        ttk.Button(button_frame1, text="🔍 Проверить атаку", 
                   command=self.check_attack, 
-                  style="Rounded.TButton").pack(pady=8)
+                  style="Rounded.TButton").pack(side="left", padx=(0, 8))
+        
+        # Добавляем кнопку подсчета времени атаки в блок проверки атаки
+        ttk.Button(button_frame1, text="⏱️ Подсчитать время атаки", 
+                  command=self.calculate_attack_time, 
+                  style="Rounded.TButton").pack(side="left")
         
         # Фрейм для проверки ID
         id_check_frame = self.create_rounded_frame(left_frame)
@@ -434,9 +449,17 @@ class ModernFolderRenamer:
         
         input_frame2.columnconfigure(1, weight=1)
         
-        ttk.Button(id_check_frame, text="🔍 Проверить ID", 
+        button_frame2 = tk.Frame(id_check_frame, bg=self.colors['surface'])
+        button_frame2.pack(fill="x", padx=12, pady=8)
+        
+        ttk.Button(button_frame2, text="🔍 Проверить ID", 
                   command=self.check_id, 
-                  style="Rounded.TButton").pack(pady=8)
+                  style="Rounded.TButton").pack(side="left", padx=(0, 8))
+        
+        # Добавляем кнопку подсчета времени ID в блок проверки ID
+        ttk.Button(button_frame2, text="⏱️ Подсчитать время ID", 
+                  command=self.calculate_id_time, 
+                  style="Rounded.TButton").pack(side="left")
         
         # Фрейм для общей проверки
         global_check_frame = self.create_rounded_frame(left_frame)
@@ -462,9 +485,30 @@ class ModernFolderRenamer:
         
         input_frame3.columnconfigure(1, weight=1)
         
-        ttk.Button(global_check_frame, text="🔍 Выполнить общую проверку", 
+        button_frame3 = tk.Frame(global_check_frame, bg=self.colors['surface'])
+        button_frame3.pack(fill="x", padx=12, pady=8)
+        
+        ttk.Button(button_frame3, text="🔍 Выполнить общую проверку", 
                   command=self.check_global, 
-                  style="Rounded.TButton").pack(pady=8)
+                  style="Rounded.TButton").pack(side="left", padx=(0, 8))
+        
+        # Добавляем кнопку подсчета времени проекта в блок общей проверки
+        ttk.Button(button_frame3, text="⏱️ Подсчитать время проекта", 
+                  command=self.calculate_project_time, 
+                  style="Rounded.TButton").pack(side="left")
+        
+        # Фрейм для выгрузки отчёта
+        report_frame = self.create_rounded_frame(left_frame)
+        report_frame.pack(fill="x", padx=10, pady=8)
+        
+        tk.Label(report_frame, text="📊 Выгрузка отчёта", 
+                font=("Segoe UI", 11, "bold"),
+                bg=self.colors['surface']).pack(anchor="w", pady=(12, 8), padx=12)
+        
+        # Кнопка для выгрузки отчёта
+        ttk.Button(report_frame, text="📊 Выгрузить отчёт в Excel", 
+                  command=self.export_shooting_report, 
+                  style="Success.TButton").pack(fill="x", padx=12, pady=8)
         
         # Настройка правой части - логов проверки
         check_log_header = tk.Frame(right_frame, bg=self.colors['surface'])
@@ -572,6 +616,17 @@ class ModernFolderRenamer:
     def browse_dest(self):
         folder = filedialog.askdirectory()
         if folder:
+            # Проверяем, содержит ли имя папки "id" (без учета регистра)
+            folder_name = os.path.basename(folder).lower()
+            if "id" not in folder_name:
+                result = messagebox.askyesno(
+                    "Подтверждение", 
+                    "Для корректной выгрузки в данном поле надо выбрать ТОЛЬКО папку самого ID. Вы уверены, что хотите использовать именно эту папку?",
+                    icon="warning"
+                )
+                if not result:
+                    return
+            
             self.dest_entry.delete(0, tk.END)
             self.dest_entry.insert(0, folder)
     
@@ -704,19 +759,19 @@ class ModernFolderRenamer:
         
         return None
     
-    def calculate_shooting_time(self, folders, source_folder):
-        """Вычисляет время съёмки на основе дат съёмки из EXIF данных"""
-        if not folders:
+    def calculate_shooting_time_for_folders(self, folder_paths):
+        """Вычисляет время съёмки на основе дат съёмки из EXIF данных для списка путей к папкам"""
+        if not folder_paths:
             return "не удалось вычислить"
         
         try:
             # Получаем времена съёмки всех папок из EXIF
             shooting_times = []
-            for folder in folders:
-                folder_path = os.path.join(source_folder, folder)
+            for folder_path in folder_paths:
                 shooting_time = self.get_folder_shooting_time(folder_path)
                 if shooting_time:
-                    shooting_times.append((folder, shooting_time))
+                    folder_name = os.path.basename(folder_path)
+                    shooting_times.append((folder_name, shooting_time))
             
             if not shooting_times:
                 return "не удалось вычислить"
@@ -771,7 +826,7 @@ class ModernFolderRenamer:
                 # Логируем информацию о дне
                 first_dt = day_times[0][1]
                 last_dt = day_times[-1][1]
-                self.log(f"📅 День {day_count} ({first_dt.strftime('%Y-%m-%d')}): {len(day_times)} папок, время: {self.format_duration(day_seconds)}", "DETAIL")
+                self.check_log(f"📅 День {day_count} ({first_dt.strftime('%Y-%m-%d')}): {len(day_times)} папок, время: {self.format_duration(day_seconds)}", "DETAIL")
                 
                 # Логируем сессии внутри дня
                 for i, session in enumerate(sessions, 1):
@@ -779,19 +834,19 @@ class ModernFolderRenamer:
                         first_session_time = session[0][1]
                         last_session_time = session[-1][1]
                         session_duration = last_session_time.timestamp() - first_session_time.timestamp()
-                        self.log(f"  📊 Сессия {i}: {first_session_time.strftime('%H:%M:%S')} - {last_session_time.strftime('%H:%M:%S')} "
+                        self.check_log(f"  📊 Сессия {i}: {first_session_time.strftime('%H:%M:%S')} - {last_session_time.strftime('%H:%M:%S')} "
                                f"({len(session)} папок, время: {self.format_duration(session_duration)})", "DETAIL")
                     else:
-                        self.log(f"  📊 Сессия {i}: 1 папка, время: 00:00:30", "DETAIL")
+                        self.check_log(f"  📊 Сессия {i}: 1 папка, время: 00:00:30", "DETAIL")
             
             if total_seconds == 0:
                 # Минимальное время съемки - 30 секунд на папку
-                return self.format_duration(len(folders) * 30)
+                return self.format_duration(len(folder_paths) * 30)
             
             return self.format_duration(total_seconds)
             
         except Exception as e:
-            self.log(f"Ошибка вычисления времени съёмки: {str(e)}", "WARNING")
+            self.check_log(f"Ошибка вычисления времени съёмки: {str(e)}", "WARNING")
             return "не удалось вычислить"
     
     def format_duration(self, total_seconds):
@@ -1034,7 +1089,8 @@ class ModernFolderRenamer:
             return
         
         # Время съемки считается ТОЛЬКО для обрабатываемых папок
-        shooting_time = self.calculate_shooting_time(all_folders, source_folder)
+        folder_paths = [os.path.join(source_folder, folder) for folder in all_folders]
+        shooting_time = self.calculate_shooting_time_for_folders(folder_paths)
         
         if device != "все" and (attack not in self.attack_ranges or device not in self.attack_ranges[attack]):
             messagebox.showerror("Ошибка", f"Выбранная комбинация атаки {attack} и устройства {device} недоступна")
@@ -1280,7 +1336,8 @@ class ModernFolderRenamer:
             return
         
         # Время съемки считается ТОЛЬКО для обрабатываемых папок
-        shooting_time = self.calculate_shooting_time(source_folders, source_folder)
+        folder_paths = [os.path.join(source_folder, folder) for folder in source_folders]
+        shooting_time = self.calculate_shooting_time_for_folders(folder_paths)
         
         if device != "все" and (attack not in self.attack_ranges or device not in self.attack_ranges[attack]):
             messagebox.showerror("Ошибка", f"Выбранная комбинация атаки {attack} и устройства {device} недоступна")
@@ -1967,6 +2024,515 @@ class ModernFolderRenamer:
         except Exception as e:
             self.check_log(f"❌ Ошибка при общей проверке проекта: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка при проверке: {str(e)}")
+
+    def calculate_attack_time(self):
+        """Подсчёт времени съёмки для отдельной атаки"""
+        attack_folder = self.attack_check_entry.get()
+        
+        if not attack_folder:
+            messagebox.showerror("Ошибка", "Выберите папку атаки")
+            return
+        
+        if not os.path.exists(attack_folder):
+            messagebox.showerror("Ошибка", "Папка атаки не существует")
+            return
+        
+        self.check_log("=" * 60, "HEADER")
+        self.check_log(f"⏱️ ПОДСЧЁТ ВРЕМЕНИ СЪЁМКИ АТАКИ", "HEADER")
+        self.check_log(f"📁 Папка: {attack_folder}", "HEADER")
+        self.check_log("=" * 60, "HEADER")
+        
+        try:
+            attack_name = os.path.basename(attack_folder)
+            id_name = os.path.basename(os.path.dirname(attack_folder))
+            
+            # Собираем все папки с числовыми именами в атаке
+            all_folder_paths = []
+            
+            # Проверяем структуру атаки
+            structure_info = self.check_attack_structure(attack_folder, attack_name)
+            
+            if structure_info['has_kozen10'] or structure_info['has_kozen12']:
+                for device in ["kozen 10", "kozen 12"]:
+                    if structure_info[f'has_{device.replace(" ", "")}']:
+                        device_folder = os.path.join(attack_folder, device)
+                        if os.path.exists(device_folder):
+                            folders = [f for f in os.listdir(device_folder) 
+                                      if os.path.isdir(os.path.join(device_folder, f)) and self.is_numeric_folder(f)]
+                            # Добавляем полные пути к папкам
+                            all_folder_paths.extend([os.path.join(device_folder, folder) for folder in folders])
+                            self.check_log(f"📱 Устройство {device}: {len(folders)} папок", "INFO")
+            else:
+                folders = [f for f in os.listdir(attack_folder) 
+                          if os.path.isdir(os.path.join(attack_folder, f)) and self.is_numeric_folder(f)]
+                # Добавляем полные пути к папкам
+                all_folder_paths.extend([os.path.join(attack_folder, folder) for folder in folders])
+                self.check_log(f"📁 Папки в корне: {len(folders)} папок", "INFO")
+            
+            if not all_folder_paths:
+                self.check_log(f"❌ В атаке не найдено папок для подсчёта времени", "ERROR")
+                return
+            
+            # Вычисляем время съёмки
+            shooting_time = self.calculate_shooting_time_for_folders(all_folder_paths)
+            
+            # Находим дату съёмки из последней папки
+            shooting_date = "не удалось определить"
+            if all_folder_paths:
+                # Сортируем папки по времени съёмки (последняя - самая новая)
+                folder_times = []
+                for folder_path in all_folder_paths:
+                    folder_time = self.get_folder_shooting_time(folder_path)
+                    if folder_time:
+                        folder_times.append((folder_path, folder_time))
+                
+                if folder_times:
+                    # Сортируем по времени съёмки (от старых к новым)
+                    folder_times.sort(key=lambda x: x[1])
+                    # Берем дату из последней (самой новой) папки
+                    last_folder_time = folder_times[-1][1]
+                    shooting_date = last_folder_time.strftime("%Y-%m-%d")
+            
+            # Удаляем существующую запись для этого ID и атаки
+            self.shooting_report_data = [item for item in self.shooting_report_data 
+                                        if not (item['ID'] == id_name and item['Attack'] == attack_name)]
+            
+            # Добавляем новую запись
+            self.shooting_report_data.append({
+                'ID': id_name,
+                'Attack': attack_name,
+                'Date': shooting_date,
+                'ShootingTime': shooting_time,
+                'FolderCount': len(all_folder_paths)
+            })
+            
+            self.check_log(f"✅ Время съёмки подсчитано успешно!", "SUCCESS")
+            self.check_log(f"📊 ID: {id_name}", "INFO")
+            self.check_log(f"🎯 Атака: {attack_name}", "INFO")
+            self.check_log(f"⏱️ Время съёмки: {shooting_time}", "INFO")
+            self.check_log(f"📅 Дата съёмки: {shooting_date}", "INFO")
+            self.check_log(f"📁 Обработано папок: {len(all_folder_paths)}", "INFO")
+            
+            messagebox.showinfo("Подсчёт завершён", 
+                              f"Время съёмки подсчитано!\n\n"
+                              f"ID: {id_name}\n"
+                              f"Атака: {attack_name}\n"
+                              f"Время съёмки: {shooting_time}\n"
+                              f"Дата съёмки: {shooting_date}\n"
+                              f"Папок: {len(all_folder_paths)}")
+            
+        except Exception as e:
+            self.check_log(f"❌ Ошибка при подсчёте времени: {str(e)}", "ERROR")
+            messagebox.showerror("Ошибка", f"Произошла ошибка при подсчёте времени: {str(e)}")
+
+    def calculate_id_time(self):
+        """Подсчёт времени съёмки для всего ID"""
+        id_folder = self.id_check_entry.get()
+        
+        if not id_folder:
+            messagebox.showerror("Ошибка", "Выберите папку ID")
+            return
+        
+        if not os.path.exists(id_folder):
+            messagebox.showerror("Ошибка", "Папка ID не существует")
+            return
+        
+        self.check_log("=" * 60, "HEADER")
+        self.check_log(f"⏱️ ПОДСЧЁТ ВРЕМЕНИ СЪЁМКИ ID", "HEADER")
+        self.check_log(f"📁 Папка: {id_folder}", "HEADER")
+        self.check_log("=" * 60, "HEADER")
+        
+        try:
+            id_name = os.path.basename(id_folder)
+            
+            # Находим все атаки в ID
+            attack_folders = []
+            for item in os.listdir(id_folder):
+                item_path = os.path.join(id_folder, item)
+                if os.path.isdir(item_path) and item in self.attack_ranges:
+                    attack_folders.append((item, item_path))
+            
+            if not attack_folders:
+                self.check_log(f"❌ В ID не найдено папок атак", "ERROR")
+                return
+            
+            total_folders = 0
+            total_time_seconds = 0
+            
+            for attack_name, attack_folder in attack_folders:
+                self.check_log(f"🎯 Обработка атаки: {attack_name}", "SECTION")
+                
+                # Собираем все папки с числовыми именами в атаке
+                all_folder_paths = []
+                
+                # Проверяем структуру атаки
+                structure_info = self.check_attack_structure(attack_folder, attack_name)
+                
+                if structure_info['has_kozen10'] or structure_info['has_kozen12']:
+                    for device in ["kozen 10", "kozen 12"]:
+                        if structure_info[f'has_{device.replace(" ", "")}']:
+                            device_folder = os.path.join(attack_folder, device)
+                            if os.path.exists(device_folder):
+                                folders = [f for f in os.listdir(device_folder) 
+                                          if os.path.isdir(os.path.join(device_folder, f)) and self.is_numeric_folder(f)]
+                                # Добавляем полные пути к папкам
+                                all_folder_paths.extend([os.path.join(device_folder, folder) for folder in folders])
+                else:
+                    folders = [f for f in os.listdir(attack_folder) 
+                              if os.path.isdir(os.path.join(attack_folder, f)) and self.is_numeric_folder(f)]
+                    # Добавляем полные пути к папкам
+                    all_folder_paths.extend([os.path.join(attack_folder, folder) for folder in folders])
+                
+                if all_folder_paths:
+                    # Вычисляем время съёмки для атаки
+                    shooting_time = self.calculate_shooting_time_for_folders(all_folder_paths)
+                    total_folders += len(all_folder_paths)
+                    
+                    # Находим дату съёмки из последней папки
+                    shooting_date = "не удалось определить"
+                    if all_folder_paths:
+                        # Сортируем папки по времени съёмки (последняя - самая новая)
+                        folder_times = []
+                        for folder_path in all_folder_paths:
+                            folder_time = self.get_folder_shooting_time(folder_path)
+                            if folder_time:
+                                folder_times.append((folder_path, folder_time))
+                        
+                        if folder_times:
+                            # Сортируем по времени съёмки (от старых к новым)
+                            folder_times.sort(key=lambda x: x[1])
+                            # Берем дату из последней (самой новой) папки
+                            last_folder_time = folder_times[-1][1]
+                            shooting_date = last_folder_time.strftime("%Y-%m-%d")
+                    
+                    # Преобразуем время в секунды для подсчета общего времени
+                    if shooting_time != "не удалось вычислить":
+                        time_parts = shooting_time.split(':')
+                        if len(time_parts) == 3:
+                            hours, minutes, seconds = map(int, time_parts)
+                            total_time_seconds += hours * 3600 + minutes * 60 + seconds
+                    
+                    # Удаляем существующую запись для этого ID и атаки
+                    self.shooting_report_data = [item for item in self.shooting_report_data 
+                                                if not (item['ID'] == id_name and item['Attack'] == attack_name)]
+                    
+                    # Сохраняем данные для отчёта
+                    self.shooting_report_data.append({
+                        'ID': id_name,
+                        'Attack': attack_name,
+                        'Date': shooting_date,
+                        'ShootingTime': shooting_time,
+                        'FolderCount': len(all_folder_paths)
+                    })
+                    
+                    self.check_log(f"✅ Атака {attack_name}: {shooting_time} ({len(all_folder_paths)} папок)", "SUCCESS")
+                else:
+                    self.check_log(f"⚠️ В атаке {attack_name} не найдено папок", "WARNING")
+            
+            # Вычисляем общее время для ID
+            total_time_formatted = self.format_duration(total_time_seconds) if total_time_seconds > 0 else "не удалось вычислить"
+            
+            self.check_log("", "INFO")
+            self.check_log(f"✅ Подсчёт времени для ID завершён!", "SUCCESS")
+            self.check_log(f"📊 ID: {id_name}", "INFO")
+            self.check_log(f"🎯 Обработано атак: {len(attack_folders)}", "INFO")
+            self.check_log(f"📁 Всего папок: {total_folders}", "INFO")
+            self.check_log(f"⏱️ Общее время съёмки ID: {total_time_formatted}", "INFO")
+            
+            messagebox.showinfo("Подсчёт завершён", 
+                              f"Время съёмки подсчитано для всего ID!\n\n"
+                              f"ID: {id_name}\n"
+                              f"Атак: {len(attack_folders)}\n"
+                              f"Всего папок: {total_folders}\n"
+                              f"Общее время съёмки: {total_time_formatted}")
+            
+        except Exception as e:
+            self.check_log(f"❌ Ошибка при подсчёте времени: {str(e)}", "ERROR")
+            messagebox.showerror("Ошибка", f"Произошла ошибка при подсчёте времени: {str(e)}")
+
+    def calculate_project_time(self):
+        """Подсчёт времени съёмки для всего проекта"""
+        project_folder = self.global_check_entry.get()
+        
+        if not project_folder:
+            messagebox.showerror("Ошибка", "Выберите общую папку проекта")
+            return
+        
+        if not os.path.exists(project_folder):
+            messagebox.showerror("Ошибка", "Общая папка проекта не существует")
+            return
+        
+        self.check_log("=" * 60, "HEADER")
+        self.check_log(f"⏱️ ПОДСЧЁТ ВРЕМЕНИ СЪЁМКИ ПРОЕКТА", "HEADER")
+        self.check_log(f"📁 Папка: {project_folder}", "HEADER")
+        self.check_log("=" * 60, "HEADER")
+        
+        try:
+            # Находим все ID в проекте
+            id_folders = []
+            for item in os.listdir(project_folder):
+                item_path = os.path.join(project_folder, item)
+                if os.path.isdir(item_path):
+                    try:
+                        has_attacks = any(subitem in self.attack_ranges for subitem in os.listdir(item_path))
+                        if has_attacks:
+                            id_folders.append(item_path)
+                    except:
+                        continue
+            
+            if not id_folders:
+                self.check_log(f"❌ В проекте не найдено папок ID", "ERROR")
+                return
+            
+            total_attacks = 0
+            total_folders = 0
+            total_time_seconds = 0
+            
+            for id_folder in id_folders:
+                id_name = os.path.basename(id_folder)
+                self.check_log(f"🆔 Обработка ID: {id_name}", "SECTION")
+                
+                # Находим все атаки в ID
+                attack_folders = []
+                for item in os.listdir(id_folder):
+                    item_path = os.path.join(id_folder, item)
+                    if os.path.isdir(item_path) and item in self.attack_ranges:
+                        attack_folders.append((item, item_path))
+                
+                if not attack_folders:
+                    self.check_log(f"⚠️ В ID {id_name} не найдено атак", "WARNING", 1)
+                    continue
+                
+                id_attacks = 0
+                id_folders_count = 0
+                id_time_seconds = 0
+                
+                for attack_name, attack_folder in attack_folders:
+                    self.check_log(f"🎯 Обработка атаки: {attack_name}", "INFO", 2)
+                    
+                    # Собираем все папки с числовыми именами в атаке
+                    all_folder_paths = []
+                    
+                    # Проверяем структуру атаки
+                    structure_info = self.check_attack_structure(attack_folder, attack_name)
+                    
+                    if structure_info['has_kozen10'] or structure_info['has_kozen12']:
+                        for device in ["kozen 10", "kozen 12"]:
+                            if structure_info[f'has_{device.replace(" ", "")}']:
+                                device_folder = os.path.join(attack_folder, device)
+                                if os.path.exists(device_folder):
+                                    folders = [f for f in os.listdir(device_folder) 
+                                              if os.path.isdir(os.path.join(device_folder, f)) and self.is_numeric_folder(f)]
+                                    # Добавляем полные пути к папкам
+                                    all_folder_paths.extend([os.path.join(device_folder, folder) for folder in folders])
+                    else:
+                        folders = [f for f in os.listdir(attack_folder) 
+                                  if os.path.isdir(os.path.join(attack_folder, f)) and self.is_numeric_folder(f)]
+                        # Добавляем полные пути к папкам
+                        all_folder_paths.extend([os.path.join(attack_folder, folder) for folder in folders])
+                    
+                    if all_folder_paths:
+                        # Вычисляем время съёмки для атаки
+                        shooting_time = self.calculate_shooting_time_for_folders(all_folder_paths)
+                        id_attacks += 1
+                        id_folders_count += len(all_folder_paths)
+                        
+                        # Находим дату съёмки из последней папки
+                        shooting_date = "не удалось определить"
+                        if all_folder_paths:
+                            # Сортируем папки по времени съёмки (последняя - самая новая)
+                            folder_times = []
+                            for folder_path in all_folder_paths:
+                                folder_time = self.get_folder_shooting_time(folder_path)
+                                if folder_time:
+                                    folder_times.append((folder_path, folder_time))
+                            
+                            if folder_times:
+                                # Сортируем по времени съёмки (от старых к новым)
+                                folder_times.sort(key=lambda x: x[1])
+                                # Берем дату из последней (самой новой) папки
+                                last_folder_time = folder_times[-1][1]
+                                shooting_date = last_folder_time.strftime("%Y-%m-%d")
+                        
+                        # Преобразуем время в секунды для подсчета общего времени
+                        if shooting_time != "не удалось вычислить":
+                            time_parts = shooting_time.split(':')
+                            if len(time_parts) == 3:
+                                hours, minutes, seconds = map(int, time_parts)
+                                attack_time_seconds = hours * 3600 + minutes * 60 + seconds
+                                id_time_seconds += attack_time_seconds
+                                total_time_seconds += attack_time_seconds
+                        
+                        # Удаляем существующую запись для этого ID и атаки
+                        self.shooting_report_data = [item for item in self.shooting_report_data 
+                                                    if not (item['ID'] == id_name and item['Attack'] == attack_name)]
+                        
+                        # Сохраняем данные для отчёта
+                        self.shooting_report_data.append({
+                            'ID': id_name,
+                            'Attack': attack_name,
+                            'Date': shooting_date,
+                            'ShootingTime': shooting_time,
+                            'FolderCount': len(all_folder_paths)
+                        })
+                        
+                        self.check_log(f"✅ {attack_name}: {shooting_time} ({len(all_folder_paths)} папок)", "SUCCESS", 3)
+                    else:
+                        self.check_log(f"⚠️ В атаке {attack_name} не найдено папок", "WARNING", 3)
+                
+                total_attacks += id_attacks
+                total_folders += id_folders_count
+                
+                # Форматируем время для ID
+                id_time_formatted = self.format_duration(id_time_seconds) if id_time_seconds > 0 else "не удалось вычислить"
+                
+                self.check_log(f"📊 ID {id_name}: {id_attacks} атак, {id_folders_count} папок, время: {id_time_formatted}", "INFO", 1)
+            
+            # Форматируем общее время для проекта
+            total_time_formatted = self.format_duration(total_time_seconds) if total_time_seconds > 0 else "не удалось вычислить"
+            
+            self.check_log("", "INFO")
+            self.check_log(f"✅ Подсчёт времени для проекта завершён!", "SUCCESS")
+            self.check_log(f"📊 Обработано ID: {len(id_folders)}", "INFO")
+            self.check_log(f"🎯 Всего атак: {total_attacks}", "INFO")
+            self.check_log(f"📁 Всего папок: {total_folders}", "INFO")
+            self.check_log(f"⏱️ Общее время съёмки проекта: {total_time_formatted}", "INFO")
+            
+            messagebox.showinfo("Подсчёт завершён", 
+                              f"Время съёмки подсчитано для всего проекта!\n\n"
+                              f"ID: {len(id_folders)}\n"
+                              f"Атак: {total_attacks}\n"
+                              f"Всего папок: {total_folders}\n"
+                              f"Общее время съёмки: {total_time_formatted}")
+            
+        except Exception as e:
+            self.check_log(f"❌ Ошибка при подсчёте времени: {str(e)}", "ERROR")
+            messagebox.showerror("Ошибка", f"Произошла ошибка при подсчёте времени: {str(e)}")
+
+    def export_shooting_report(self):
+        """Выгрузка отчёта о времени съёмки в Excel"""
+        if not self.shooting_report_data:
+            messagebox.showwarning("Предупреждение", "Нет данных для выгрузки. Сначала выполните подсчёт времени съёмки.")
+            return
+        
+        try:
+            # Создаем DataFrame из данных
+            df = pd.DataFrame(self.shooting_report_data)
+            
+            # Генерируем имя файла с текущей датой и временем
+            current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            default_filename = f"отчёт по времени съёмки атак_{current_time}.xlsx"
+            
+            # Сохраняем в Excel файл
+            file_path = filedialog.asksaveasfilename(
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+                title="Сохранить отчёт о времени съёмки",
+                initialfile=default_filename
+            )
+            
+            if file_path:
+                # Создаем Excel файл с красивым оформлением
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "Отчёт о времени съёмки"
+                
+                # Заголовок отчёта
+                ws.merge_cells('A1:E1')
+                title_cell = ws.cell(row=1, column=1, value="Отчёт о времени съёмки атак")
+                title_cell.font = Font(bold=True, size=16, color="4f46e5")
+                title_cell.alignment = Alignment(horizontal="center")
+                
+                # Информация о дате формирования
+                ws.merge_cells('A2:E2')
+                date_cell = ws.cell(row=2, column=1, value=f"Сформирован: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                date_cell.font = Font(italic=True, size=10, color="64748b")
+                date_cell.alignment = Alignment(horizontal="center")
+                
+                # Пустая строка
+                ws.append([])
+                
+                # Заголовки таблицы
+                headers = ['ID', 'Атака', 'Дата съёмки', 'Время съёмки', 'Количество папок']
+                ws.append(headers)
+                
+                # Данные
+                for data in self.shooting_report_data:
+                    ws.append([
+                        data['ID'],
+                        data['Attack'],
+                        data['Date'],
+                        data['ShootingTime'],
+                        data.get('FolderCount', '')
+                    ])
+                
+                # Стилизация
+                # Заголовки таблицы
+                thin_border = Border(left=Side(style='thin'), 
+                                   right=Side(style='thin'), 
+                                   top=Side(style='thin'), 
+                                   bottom=Side(style='thin'))
+                
+                for col in range(1, len(headers) + 1):
+                    cell = ws.cell(row=4, column=col)
+                    cell.font = Font(bold=True, color="FFFFFF")
+                    cell.fill = PatternFill(start_color="4f46e5", end_color="4f46e5", fill_type="solid")
+                    cell.alignment = Alignment(horizontal="center")
+                    cell.border = thin_border
+                
+                # Данные таблицы
+                for row in range(5, len(self.shooting_report_data) + 5):
+                    for col in range(1, len(headers) + 1):
+                        cell = ws.cell(row=row, column=col)
+                        cell.border = thin_border
+                        if col in [4, 5]:  # Время съёмки и количество папок
+                            cell.alignment = Alignment(horizontal="center")
+                
+                # Объединяем ячейки с одинаковыми ID
+                current_id = None
+                start_row = 5
+                
+                for row in range(5, len(self.shooting_report_data) + 5):
+                    id_value = ws.cell(row=row, column=1).value
+                    
+                    if current_id is None:
+                        current_id = id_value
+                        start_row = row
+                    elif id_value != current_id:
+                        if start_row != row - 1:
+                            ws.merge_cells(f'A{start_row}:A{row-1}')
+                            # Центрируем объединенную ячейку
+                            ws.cell(row=start_row, column=1).alignment = Alignment(horizontal="center", vertical="center")
+                        current_id = id_value
+                        start_row = row
+                
+                # Объединяем последнюю группу
+                if start_row != len(self.shooting_report_data) + 4:
+                    ws.merge_cells(f'A{start_row}:A{len(self.shooting_report_data) + 4}')
+                    ws.cell(row=start_row, column=1).alignment = Alignment(horizontal="center", vertical="center")
+                
+                # Автоширина колонок
+                for column in ws.columns:
+                    max_length = 0
+                    column_letter = get_column_letter(column[0].column)
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = (max_length + 2)
+                    ws.column_dimensions[column_letter].width = adjusted_width
+                
+                # Сохраняем файл
+                wb.save(file_path)
+                
+                self.check_log(f"✅ Отчёт успешно выгружен: {file_path}", "SUCCESS")
+                messagebox.showinfo("Успех", f"Отчёт успешно выгружен в файл:\n{file_path}")
+                
+        except Exception as e:
+            self.check_log(f"❌ Ошибка при выгрузке отчёта: {str(e)}", "ERROR")
+            messagebox.showerror("Ошибка", f"Произошла ошибка при выгрузке отчёта: {str(e)}")
 
     def load_attack_data(self, event=None):
         """Загрузка данных выбранной атаки для редактирования"""
