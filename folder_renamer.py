@@ -14,7 +14,7 @@ from openpyxl.utils import get_column_letter
 class ModernFolderRenamer:
     def __init__(self, root):
         self.root = root
-        self.root.title("Folder Manager - Kozen v2.9.0")
+        self.root.title("Folder Manager - Kozen v2.9.1")
         self.root.geometry("1200x750")
         self.root.configure(bg='#f8f9fa')
         self.root.minsize(1000, 600)
@@ -700,12 +700,17 @@ class ModernFolderRenamer:
         except Exception:
             pass
         
-        # Если EXIF недоступен, используем дату создания файла как fallback
+        return None
+    
+    def find_bestshot_file(self, folder_path):
+        """Находит файл BestShot в папке"""
         try:
-            timestamp = os.path.getctime(image_path)
-            return datetime.datetime.fromtimestamp(timestamp)
+            for file in os.listdir(folder_path):
+                if "bestshot" in file.lower() and any(file.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png']):
+                    return os.path.join(folder_path, file)
         except Exception:
-            return None
+            pass
+        return None
     
     def find_image_files(self, folder_path):
         """Находит все файлы изображений в папке"""
@@ -722,19 +727,46 @@ class ModernFolderRenamer:
         
         return image_files
     
+    def get_folder_shooting_date(self, folder_path):
+        """Получает дату съёмки для папки на основе EXIF данных изображений"""
+        # Сначала ищем BestShot
+        bestshot_file = self.find_bestshot_file(folder_path)
+        if bestshot_file:
+            date = self.get_image_shooting_date(bestshot_file)
+            if date:
+                return date
+        
+        # Если BestShot не найден или нет EXIF данных, ищем в папках Captures и Focus
+        subfolders_to_check = ['Captures', 'Focus']
+        
+        for subfolder in subfolders_to_check:
+            subfolder_path = os.path.join(folder_path, subfolder)
+            if os.path.exists(subfolder_path):
+                image_files = self.find_image_files(subfolder_path)
+                # Сортируем файлы по имени для последовательности
+                image_files.sort()
+                for image_file in image_files:
+                    date = self.get_image_shooting_date(image_file)
+                    if date:
+                        return date
+        
+        # Если ничего не найдено, ищем любые изображения в папке
+        image_files = self.find_image_files(folder_path)
+        # Сортируем файлы по имени для последовательности
+        image_files.sort()
+        for image_file in image_files:
+            date = self.get_image_shooting_date(image_file)
+            if date:
+                return date
+        
+        return None
+    
     def get_folder_shooting_time(self, folder_path):
         """Получает время съёмки для папки на основе EXIF данных изображений"""
         # Сначала ищем BestShot
-        bestshot_files = []
-        try:
-            for file in os.listdir(folder_path):
-                if "bestshot" in file.lower() and any(file.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png']):
-                    bestshot_files.append(os.path.join(folder_path, file))
-        except Exception:
-            pass
-        
-        if bestshot_files:
-            date = self.get_image_shooting_date(bestshot_files[0])
+        bestshot_file = self.find_bestshot_file(folder_path)
+        if bestshot_file:
+            date = self.get_image_shooting_date(bestshot_file)
             if date:
                 return date
         
@@ -745,6 +777,8 @@ class ModernFolderRenamer:
             subfolder_path = os.path.join(folder_path, subfolder)
             if os.path.exists(subfolder_path):
                 image_files = self.find_image_files(subfolder_path)
+                # Сортируем файлы по имени для последовательности
+                image_files.sort()
                 for image_file in image_files:
                     date = self.get_image_shooting_date(image_file)
                     if date:
@@ -752,6 +786,8 @@ class ModernFolderRenamer:
         
         # Если ничего не найдено, ищем любые изображения в папке
         image_files = self.find_image_files(folder_path)
+        # Сортируем файлы по имени для последовательности
+        image_files.sort()
         for image_file in image_files:
             date = self.get_image_shooting_date(image_file)
             if date:
@@ -855,6 +891,28 @@ class ModernFolderRenamer:
         minutes = int((total_seconds % 3600) // 60)
         seconds = int(total_seconds % 60)
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    
+    def get_common_shooting_date(self, folder_paths):
+        """Получает самую частую дату съёмки из списка папок на основе EXIF данных"""
+        all_shooting_dates = []
+        
+        for folder_path in folder_paths:
+            folder_date = self.get_folder_shooting_date(folder_path)
+            if folder_date:
+                all_shooting_dates.append(folder_date)
+        
+        if not all_shooting_dates:
+            return "не удалось определить"
+        
+        # Считаем частоту дат
+        date_counts = {}
+        for date in all_shooting_dates:
+            date_str = date.strftime("%Y-%m-%d")
+            date_counts[date_str] = date_counts.get(date_str, 0) + 1
+        
+        # Находим дату с максимальным количеством упоминаний
+        common_date = max(date_counts.items(), key=lambda x: x[1])[0]
+        return common_date
     
     def parse_number_range(self, range_str):
         """Парсинг диапазона номеров с сохранением порядка ввода"""
@@ -1146,7 +1204,7 @@ class ModernFolderRenamer:
                     except Exception as e:
                         content_errors = True
                         error_details.append(folder)
-                        self.log(f"❌ Ошибка при проверке папки {folder}: {str(e)}", "ERROR")
+                        self.log(f"❌ Ошибка при проверке папке {folder}: {str(e)}", "ERROR")
                 
                 if content_errors:
                     self.log("🚫 ОБНАРУЖЕНЫ ОШИБКИ! Переименование отменено.", "ERROR")
@@ -2076,22 +2134,8 @@ class ModernFolderRenamer:
             # Вычисляем время съёмки
             shooting_time = self.calculate_shooting_time_for_folders(all_folder_paths)
             
-            # Находим дату съёмки из последней папки
-            shooting_date = "не удалось определить"
-            if all_folder_paths:
-                # Сортируем папки по времени съёмки (последняя - самая новая)
-                folder_times = []
-                for folder_path in all_folder_paths:
-                    folder_time = self.get_folder_shooting_time(folder_path)
-                    if folder_time:
-                        folder_times.append((folder_path, folder_time))
-                
-                if folder_times:
-                    # Сортируем по времени съёмки (от старых к новым)
-                    folder_times.sort(key=lambda x: x[1])
-                    # Берем дату из последней (самой новой) папки
-                    last_folder_time = folder_times[-1][1]
-                    shooting_date = last_folder_time.strftime("%Y-%m-%d")
+            # Определяем дату съёмки на основе EXIF данных
+            shooting_date = self.get_common_shooting_date(all_folder_paths)
             
             # Удаляем существующую запись для этого ID и атаки
             self.shooting_report_data = [item for item in self.shooting_report_data 
@@ -2188,22 +2232,8 @@ class ModernFolderRenamer:
                     shooting_time = self.calculate_shooting_time_for_folders(all_folder_paths)
                     total_folders += len(all_folder_paths)
                     
-                    # Находим дату съёмки из последней папки
-                    shooting_date = "не удалось определить"
-                    if all_folder_paths:
-                        # Сортируем папки по времени съёмки (последняя - самая новая)
-                        folder_times = []
-                        for folder_path in all_folder_paths:
-                            folder_time = self.get_folder_shooting_time(folder_path)
-                            if folder_time:
-                                folder_times.append((folder_path, folder_time))
-                        
-                        if folder_times:
-                            # Сортируем по времени съёмки (от старых к новым)
-                            folder_times.sort(key=lambda x: x[1])
-                            # Берем дату из последней (самой новой) папки
-                            last_folder_time = folder_times[-1][1]
-                            shooting_date = last_folder_time.strftime("%Y-%m-%d")
+                    # Определяем дату съёмки на основе EXIF данных
+                    shooting_date = self.get_common_shooting_date(all_folder_paths)
                     
                     # Преобразуем время в секунды для подсчета общего времени
                     if shooting_time != "не удалось вычислить":
@@ -2337,22 +2367,8 @@ class ModernFolderRenamer:
                         id_attacks += 1
                         id_folders_count += len(all_folder_paths)
                         
-                        # Находим дату съёмки из последней папки
-                        shooting_date = "не удалось определить"
-                        if all_folder_paths:
-                            # Сортируем папки по времени съёмки (последняя - самая новая)
-                            folder_times = []
-                            for folder_path in all_folder_paths:
-                                folder_time = self.get_folder_shooting_time(folder_path)
-                                if folder_time:
-                                    folder_times.append((folder_path, folder_time))
-                            
-                            if folder_times:
-                                # Сортируем по времени съёмки (от старых к новым)
-                                folder_times.sort(key=lambda x: x[1])
-                                # Берем дату из последней (самой новой) папки
-                                last_folder_time = folder_times[-1][1]
-                                shooting_date = last_folder_time.strftime("%Y-%m-%d")
+                        # Определяем дату съёмки на основе EXIF данных
+                        shooting_date = self.get_common_shooting_date(all_folder_paths)
                         
                         # Преобразуем время в секунды для подсчета общего времени
                         if shooting_time != "не удалось вычислить":

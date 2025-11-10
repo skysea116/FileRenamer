@@ -1,0 +1,126 @@
+{
+    "02 2D Mask": {
+        "kozen 10": [
+            91,
+            170
+        ],
+        "kozen 12": [
+            171,
+            250
+        ]
+    },
+    "03 2D Mask": {
+        "kozen 10": [
+            251,
+            346
+        ],
+        "kozen 12": [
+            347,
+            442
+        ]
+    },
+    "04 2D Mask": {
+        "kozen 10": [
+            443,
+            458
+        ],
+        "kozen 12": [
+            459,
+            474
+        ]
+    },
+    "05 2D Mask": {
+        "kozen 10": [
+            475,
+            514
+        ],
+        "kozen 12": [
+            515,
+            554
+        ]
+    },
+    "06 2D Mask dev 1": {
+        "kozen 10": [
+            555,
+            594
+        ]
+    },
+    "07 2D Mask dev 2": {
+        "kozen 12": [
+            595,
+            634
+        ]
+    },
+    "08 3D Mask dev 1": {
+        "kozen 10": [
+            635,
+            733
+        ]
+    },
+    "09 3D Mask dev 2": {
+        "kozen 12": [
+            734,
+            832
+        ]
+    },
+    "10 Indoors": {
+        "kozen 10": [
+            833,
+            848
+        ],
+        "kozen 12": [
+            975,
+            990
+        ]
+    },
+    "11 Indoors. With attributes": {
+        "kozen 10": [
+            849,
+            876
+        ],
+        "kozen 12": [
+            991,
+            1018
+        ]
+    },
+    "12 Indoors. Backlight": {
+        "kozen 10": [
+            877,
+            890
+        ],
+        "kozen 12": [
+            1019,
+            1032
+        ]
+    },
+    "13 Indoors. Insufficient lighting": {
+        "kozen 10": [
+            891,
+            918
+        ],
+        "kozen 12": [
+            1033,
+            1060
+        ]
+    },
+    "14 Indoors. Behind transparent glass": {
+        "kozen 10": [
+            919,
+            932
+        ],
+        "kozen 12": [
+            1061,
+            1074
+        ]
+    },
+    "15 Outside": {
+        "kozen 10": [
+            933,
+            974
+        ],
+        "kozen 12": [
+            1075,
+            1116
+        ]
+    }
+}
