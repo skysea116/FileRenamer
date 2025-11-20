@@ -14,7 +14,7 @@ from openpyxl.utils import get_column_letter
 class ModernFolderRenamer:
     def __init__(self, root):
         self.root = root
-        self.root.title("Folder Manager - Kozen v2.9.1")
+        self.root.title("Folder Manager - Kozen v2.9.2")
         self.root.geometry("1200x750")
         self.root.configure(bg='#f8f9fa')
         self.root.minsize(1000, 600)
@@ -1121,7 +1121,7 @@ class ModernFolderRenamer:
                 else:
                     self.check_log(error_msg, "ERROR", indent)
             return False
-    
+
     def execute_renaming(self):
         source_folder = self.source_entry.get()
         dest_folder = self.dest_entry.get()
@@ -1232,7 +1232,85 @@ class ModernFolderRenamer:
                     messagebox.showerror("Ошибка", f"Для атаки {attack} не заданы диапазоны")
                     return
                 
-                if len(devices_in_attack) == 1:
+                # НОВАЯ ЛОГИКА: если ровно 2 папки, то первая - kozen 10, вторая - kozen 12
+                if len(folders_to_process) == 2 and len(devices_in_attack) >= 2:
+                    self.log("🎯 Обнаружено 2 папки: первая для Kozen 10, вторая для Kozen 12", "INFO")
+                    
+                    # Обработка первой папки для Kozen 10
+                    if "kozen 10" in devices_in_attack:
+                        device_name = "kozen 10"
+                        start_num, end_num = self.attack_ranges[attack][device_name]
+                        device_folder = os.path.join(attack_folder, device_name)
+                        
+                        # Получаем все вложенные папки из первой папки
+                        first_source_folder = os.path.join(source_folder, folders_to_process[0])
+                        first_subfolders = [f for f in os.listdir(first_source_folder) 
+                                          if os.path.isdir(os.path.join(first_source_folder, f))]
+                        first_subfolders.sort(key=self.natural_sort_key)
+                        
+                        self.log(f"📁 Обработка папки {folders_to_process[0]} для {device_name}: {len(first_subfolders)} вложенных папок", "INFO")
+                        
+                        available_numbers = list(range(start_num, end_num + 1))
+                        actual_processing = min(len(first_subfolders), len(available_numbers))
+                        
+                        if actual_processing < len(first_subfolders):
+                            self.log(f"⚠️ Для {device_name} доступно только {len(available_numbers)} номеров, обрабатываем {actual_processing} папок", "WARNING")
+                        
+                        current_number = start_num
+                        
+                        for i in range(actual_processing):
+                            subfolder = first_subfolders[i]
+                            old_path = os.path.join(first_source_folder, subfolder)
+                            new_name = str(current_number)
+                            new_path = os.path.join(device_folder, new_name)
+                            
+                            if os.path.exists(new_path):
+                                shutil.rmtree(new_path)
+                                self.log(f"Удалена существующая папка: {device_name}/{new_name}", "WARNING")
+                            
+                            shutil.copytree(old_path, new_path)
+                            self.log(f"Обработано: {folders_to_process[0]}/{subfolder} → {device_name}/{new_name}", "SUCCESS")
+                            processed_count += 1
+                            current_number += 1
+                    
+                    # Обработка второй папки для Kozen 12
+                    if "kozen 12" in devices_in_attack:
+                        device_name = "kozen 12"
+                        start_num, end_num = self.attack_ranges[attack][device_name]
+                        device_folder = os.path.join(attack_folder, device_name)
+                        
+                        # Получаем все вложенные папки из второй папки
+                        second_source_folder = os.path.join(source_folder, folders_to_process[1])
+                        second_subfolders = [f for f in os.listdir(second_source_folder) 
+                                           if os.path.isdir(os.path.join(second_source_folder, f))]
+                        second_subfolders.sort(key=self.natural_sort_key)
+                        
+                        self.log(f"📁 Обработка папки {folders_to_process[1]} для {device_name}: {len(second_subfolders)} вложенных папок", "INFO")
+                        
+                        available_numbers = list(range(start_num, end_num + 1))
+                        actual_processing = min(len(second_subfolders), len(available_numbers))
+                        
+                        if actual_processing < len(second_subfolders):
+                            self.log(f"⚠️ Для {device_name} доступно только {len(available_numbers)} номеров, обрабатываем {actual_processing} папок", "WARNING")
+                        
+                        current_number = start_num
+                        
+                        for i in range(actual_processing):
+                            subfolder = second_subfolders[i]
+                            old_path = os.path.join(second_source_folder, subfolder)
+                            new_name = str(current_number)
+                            new_path = os.path.join(device_folder, new_name)
+                            
+                            if os.path.exists(new_path):
+                                shutil.rmtree(new_path)
+                                self.log(f"Удалена существующая папка: {device_name}/{new_name}", "WARNING")
+                            
+                            shutil.copytree(old_path, new_path)
+                            self.log(f"Обработано: {folders_to_process[1]}/{subfolder} → {device_name}/{new_name}", "SUCCESS")
+                            processed_count += 1
+                            current_number += 1
+                        
+                elif len(devices_in_attack) == 1:
                     # Если только одно устройство - все папки в него
                     device_name = devices_in_attack[0]
                     start_num, end_num = self.attack_ranges[attack][device_name]
@@ -1261,7 +1339,7 @@ class ModernFolderRenamer:
                         processed_count += 1
                         current_number += 1
                 else:
-                    # Если два устройства - распределяем поровну
+                    # Если два устройства и не 2 папки - распределяем поровну
                     device1, device2 = devices_in_attack
                     start1, end1 = self.attack_ranges[attack][device1]
                     start2, end2 = self.attack_ranges[attack][device2]
