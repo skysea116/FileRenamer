@@ -14,7 +14,7 @@ from openpyxl.utils import get_column_letter
 class ModernFolderRenamer:
     def __init__(self, root):
         self.root = root
-        self.root.title("Folder Manager - Kozen v2.9.2")
+        self.root.title("Folder Manager - Kozen v2.9.5")
         self.root.geometry("1200x750")
         self.root.configure(bg='#f8f9fa')
         self.root.minsize(1000, 600)
@@ -83,19 +83,19 @@ class ModernFolderRenamer:
                            relief='solid')
         self.style.map('Secondary.TButton',
                       background=[('active', self.colors['border'])])
-
+        
         self.style.configure('Success.TButton',
                            background=self.colors['success'],
                            foreground='white')
         self.style.map('Success.TButton',
                       background=[('active', '#34d399')])
-
+        
         self.style.configure('Warning.TButton',
                            background=self.colors['warning'],
                            foreground='white')
         self.style.map('Warning.TButton',
                       background=[('active', '#fbbf24')])
-
+        
         self.style.configure('Rounded.TFrame', 
                            background=self.colors['surface'],
                            relief='solid',
@@ -969,11 +969,11 @@ class ModernFolderRenamer:
                 start, end = self.attack_ranges[attack_name][device]
                 return end - start + 1
             return 0
-
+    
     def is_numeric_folder(self, folder_name):
         """Проверяет что имя папки числовое (1-4 цифры)"""
         return folder_name.isdigit() and 1 <= len(folder_name) <= 4
-
+    
     def log(self, message, level="INFO"):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
@@ -1121,7 +1121,7 @@ class ModernFolderRenamer:
                 else:
                     self.check_log(error_msg, "ERROR", indent)
             return False
-
+    
     def execute_renaming(self):
         source_folder = self.source_entry.get()
         dest_folder = self.dest_entry.get()
@@ -1525,6 +1525,12 @@ class ModernFolderRenamer:
             self.log(f"🔄 Начало замены папок...", "HEADER")
             self.log(f"🔢 Заменяемые номера: {replace_numbers}", "INFO")
             
+            # СОЗДАЕМ ПАПКУ ДЛЯ БЭКАПА
+            backup_folder_name = f"backup_replace_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            backup_folder = os.path.join(dest_folder, backup_folder_name)
+            os.makedirs(backup_folder, exist_ok=True)
+            self.log(f"💾 Создана папка для бэкапа: {backup_folder_name}", "INFO")
+            
             # ПРЕДВАРИТЕЛЬНАЯ ПРОВЕРКА СОДЕРЖИМОГО
             if check_content:
                 self.log("🔍 Начинается предварительная проверка содержимого...", "INFO")
@@ -1558,6 +1564,7 @@ class ModernFolderRenamer:
                     self.log("✅ Все папки проверены успешно!", "SUCCESS")
             
             replaced_count = 0
+            backed_up_count = 0
             
             if device == "все":
                 for i, folder in enumerate(source_folders):
@@ -1584,11 +1591,31 @@ class ModernFolderRenamer:
                     new_name = str(target_number)
                     new_path = os.path.join(device_folder, new_name)
                     
+                    # СОЗДАЕМ БЭКАП ПЕРЕД ЗАМЕНОЙ
+                    if os.path.exists(new_path):
+                        # Создаем структуру папок для бэкапа
+                        backup_attack_folder = os.path.join(backup_folder, attack)
+                        os.makedirs(backup_attack_folder, exist_ok=True)
+                        
+                        backup_device_folder = os.path.join(backup_attack_folder, found_device)
+                        os.makedirs(backup_device_folder, exist_ok=True)
+                        
+                        backup_target_path = os.path.join(backup_device_folder, new_name)
+                        
+                        # Копируем существующую папку в бэкап
+                        try:
+                            shutil.copytree(new_path, backup_target_path)
+                            self.log(f"💾 Создан бэкап: {found_device}/{new_name} -> {backup_folder_name}/{attack}/{found_device}/{new_name}", "INFO")
+                            backed_up_count += 1
+                        except Exception as e:
+                            self.log(f"⚠️ Не удалось создать бэкап для {found_device}/{new_name}: {str(e)}", "WARNING")
+                    
+                    # УДАЛЯЕМ СТАРУЮ ПАПКУ И КОПИРУЕМ НОВУЮ
                     if os.path.exists(new_path):
                         shutil.rmtree(new_path)
                     
                     shutil.copytree(old_path, new_path)
-                    self.log(f"Заменено: {folder} → {found_device}/{new_name}", "SUCCESS")
+                    self.log(f"🔄 Заменено: {folder} → {found_device}/{new_name}", "SUCCESS")
                     replaced_count += 1
             else:
                 device_folder = os.path.join(attack_folder, device)
@@ -1599,26 +1626,49 @@ class ModernFolderRenamer:
                     new_name = str(target_number)
                     new_path = os.path.join(device_folder, new_name)
                     
+                    # СОЗДАЕМ БЭКАП ПЕРЕД ЗАМЕНОЙ
+                    if os.path.exists(new_path):
+                        # Создаем структуру папок для бэкапа
+                        backup_attack_folder = os.path.join(backup_folder, attack)
+                        os.makedirs(backup_attack_folder, exist_ok=True)
+                        
+                        backup_device_folder = os.path.join(backup_attack_folder, device)
+                        os.makedirs(backup_device_folder, exist_ok=True)
+                        
+                        backup_target_path = os.path.join(backup_device_folder, new_name)
+                        
+                        # Копируем существующую папку в бэкап
+                        try:
+                            shutil.copytree(new_path, backup_target_path)
+                            self.log(f"💾 Создан бэкап: {device}/{new_name} -> {backup_folder_name}/{attack}/{device}/{new_name}", "INFO")
+                            backed_up_count += 1
+                        except Exception as e:
+                            self.log(f"⚠️ Не удалось создать бэкап для {device}/{new_name}: {str(e)}", "WARNING")
+                    
+                    # УДАЛЯЕМ СТАРУЮ ПАПКУ И КОПИРУЕМ НОВУЮ
                     if os.path.exists(new_path):
                         shutil.rmtree(new_path)
                     
                     shutil.copytree(old_path, new_path)
-                    self.log(f"Заменено: {folder} → {new_name}", "SUCCESS")
+                    self.log(f"🔄 Заменено: {folder} → {new_name}", "SUCCESS")
                     replaced_count += 1
             
             self.log("=" * 70, "SUCCESS")
             self.log(f"✅ Замена завершена успешно! Заменено: {replaced_count} папок", "SUCCESS")
+            self.log(f"💾 Создано бэкапов: {backed_up_count} папок", "INFO")
             self.log(f"⏱️ Общее время съёмки: {shooting_time}", "INFO")
             
             messagebox.showinfo("Успех", 
                                f"Замена завершена!\n\n"
                                f"✅ Заменено папок: {replaced_count}\n"
+                               f"💾 Создано бэкапов: {backed_up_count}\n"
+                               f"📁 Папка бэкапа: {backup_folder_name}\n"
                                f"⏱️ Время съёмки: {shooting_time}")
             
         except Exception as e:
             self.log(f"Ошибка при замене: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка: {str(e)}")
-
+    
     def check_attack(self):
         """Проверка отдельной атаки"""
         attack_folder = self.attack_check_entry.get()
@@ -1768,7 +1818,7 @@ class ModernFolderRenamer:
         except Exception as e:
             self.check_log(f"❌ Ошибка при проверке атаки: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка при проверке: {str(e)}")
-
+    
     def check_attack_structure(self, attack_folder, attack_type):
         """Проверяет структуру папки атаки и возвращает информацию о ней"""
         try:
@@ -1798,7 +1848,7 @@ class ModernFolderRenamer:
                 "structure_type": "ошибка доступа",
                 "expected_total": 0
             }
-
+    
     def check_id(self):
         """Проверка ID с проверкой содержимого папок"""
         id_folder = self.id_check_entry.get()
@@ -1957,7 +2007,7 @@ class ModernFolderRenamer:
         except Exception as e:
             self.check_log(f"❌ Ошибка при проверке ID: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка при проверке: {str(e)}")
-
+    
     def check_global(self):
         """Общая проверка проекта с проверкой содержимого папок"""
         project_folder = self.global_check_entry.get()
@@ -2160,7 +2210,7 @@ class ModernFolderRenamer:
         except Exception as e:
             self.check_log(f"❌ Ошибка при общей проверке проекта: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка при проверке: {str(e)}")
-
+    
     def calculate_attack_time(self):
         """Подсчёт времени съёмки для отдельной атаки"""
         attack_folder = self.attack_check_entry.get()
@@ -2246,7 +2296,7 @@ class ModernFolderRenamer:
         except Exception as e:
             self.check_log(f"❌ Ошибка при подсчёте времени: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка при подсчёте времени: {str(e)}")
-
+    
     def calculate_id_time(self):
         """Подсчёт времени съёмки для всего ID"""
         id_folder = self.id_check_entry.get()
@@ -2357,7 +2407,7 @@ class ModernFolderRenamer:
         except Exception as e:
             self.check_log(f"❌ Ошибка при подсчёте времени: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка при подсчёте времени: {str(e)}")
-
+    
     def calculate_project_time(self):
         """Подсчёт времени съёмки для всего проекта"""
         project_folder = self.global_check_entry.get()
@@ -2502,7 +2552,7 @@ class ModernFolderRenamer:
         except Exception as e:
             self.check_log(f"❌ Ошибка при подсчёте времени: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка при подсчёте времени: {str(e)}")
-
+    
     def export_shooting_report(self):
         """Выгрузка отчёта о времени съёмки в Excel"""
         if not self.shooting_report_data:
@@ -2627,7 +2677,7 @@ class ModernFolderRenamer:
         except Exception as e:
             self.check_log(f"❌ Ошибка при выгрузке отчёта: {str(e)}", "ERROR")
             messagebox.showerror("Ошибка", f"Произошла ошибка при выгрузке отчёта: {str(e)}")
-
+    
     def load_attack_data(self, event=None):
         """Загрузка данных выбранной атаки для редактирования"""
         attack = self.edit_attack_var.get()
